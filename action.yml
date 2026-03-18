@@ -11,9 +11,18 @@ branding:
 
 # Define your inputs here.
 inputs:
+  github-token:
+    description: 'GitHub token with repo access to read the configuration file'
+    required: true
+  owner:
+    description: GitHub repository owner
+    required: true
   repository:
     description: GitHub repository name
     required: true
+  ref:
+    description: Branch, tag, or commit SHA to fetch from (optional, defaults to default branch)
+    required: false
   default-runs-on:
     description: Default runs_on value from veracode workflow inputs
     required: true

@@ -1,6 +1,54 @@
 import * as core from '@actions/core'
-import fs from 'fs'
+import { getOctokit } from '@actions/github'
 import yaml from 'js-yaml'
+
+interface FetchFileOptions {
+  owner: string
+  repository: string
+  path: string
+  ref?: string
+  token: string
+}
+
+async function fetchFileFromRepo(
+  options: FetchFileOptions
+): Promise<string> {
+  const { owner, repository, path, ref, token } = options
+
+  try {
+    const octokit = getOctokit(token)
+
+    core.info(
+      `Fetching file: ${path} from ${owner}/${repository}${ref ? ` (ref: ${ref})` : ''}`
+    )
+
+    const response = await octokit.rest.repos.getContent({
+      owner,
+      repo: repository,
+      path,
+      ...(ref && { ref })
+    })
+
+    if (!('content' in response.data) || Array.isArray(response.data)) {
+      throw new Error(`Path ${path} is not a file`)
+    }
+
+    const content = Buffer.from(response.data.content, 'base64').toString(
+      'utf-8'
+    )
+
+    core.info(`Successfully fetched file (${response.data.size} bytes)`)
+    return content
+  } catch (error) {
+    if (error instanceof Error) {
+      core.error(`Failed to fetch file: ${error.message}`)
+      throw new Error(
+        `Failed to fetch ${path} from ${owner}/${repository}: ${error.message}`
+      )
+    }
+    throw error
+  }
+}
 
 /**
  * The main function for the action.
@@ -12,17 +60,24 @@ export async function run(): Promise<void> {
     const mapping_path = core.getInput('runs-on-mapping-yaml', {
       required: true
     })
+    const github_token = core.getInput('github-token', { required: true })
+    const owner = core.getInput('owner', { required: true })
     const repository = core.getInput('repository', { required: true })
+    const ref = core.getInput('ref')
     const default_runs_on = core.getInput('default-runs-on', { required: true })
 
     core.info(`Loading runs-on-mapping-yaml from ${mapping_path}`)
-    const file_content = await fs.promises
-      .readFile(mapping_path, 'utf-8')
-      .catch((error) => {
-        const message = `Failed to read mapping file: ${mapping_path}`
-        core.error(message)
-        throw new Error(message, { cause: error.cause })
-      })
+    const file_content = await fetchFileFromRepo({
+      owner: owner,
+      repository: 'veracode',
+      path: mapping_path,
+      ref,
+      token: github_token
+    }).catch((error) => {
+      const message = `Failed to fetch mapping file from ${owner}/veracode/${mapping_path}`
+      core.error(message)
+      throw new Error(message, { cause: error.cause })
+    })
 
     // throws YAMLException on failure
     const mapping_yaml = yaml.load(file_content) as {
@@ -48,6 +103,8 @@ export async function run(): Promise<void> {
         break
       }
     }
+
+    core.info(`Using runs_on value: ${runs_on}`)
 
     // Set outputs for other workflow steps to use
     core.setOutput('runs_on', runs_on)
