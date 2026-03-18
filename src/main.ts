@@ -10,9 +10,7 @@ interface FetchFileOptions {
   token: string
 }
 
-async function fetchFileFromRepo(
-  options: FetchFileOptions
-): Promise<string> {
+async function fetchFileFromRepo(options: FetchFileOptions): Promise<string> {
   const { owner, repository, path, ref, token } = options
 
   try {
@@ -43,10 +41,11 @@ async function fetchFileFromRepo(
     if (error instanceof Error) {
       core.error(`Failed to fetch file: ${error.message}`)
       throw new Error(
-        `Failed to fetch ${path} from ${owner}/${repository}: ${error.message}`
+        `Failed to fetch ${path} from ${owner}/${repository}: ${error.message}`,
+        { cause: error }
       )
     }
-    throw error
+    throw new Error('Unknown error', { cause: error })
   }
 }
 
@@ -76,7 +75,7 @@ export async function run(): Promise<void> {
     }).catch((error) => {
       const message = `Failed to fetch mapping file from ${owner}/veracode/${mapping_path}`
       core.error(message)
-      throw new Error(message, { cause: error.cause })
+      throw new Error(message, { cause: error })
     })
 
     // throws YAMLException on failure

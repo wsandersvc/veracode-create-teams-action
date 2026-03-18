@@ -21,7 +21,9 @@ inputs:
     description: GitHub repository name
     required: true
   ref:
-    description: Branch, tag, or commit SHA to fetch from (optional, defaults to default branch)
+    description:
+      Branch, tag, or commit SHA to fetch from (optional, defaults to default
+      branch)
     required: false
   default-runs-on:
     description: Default runs_on value from veracode workflow inputs
