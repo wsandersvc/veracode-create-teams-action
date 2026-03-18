@@ -9,7 +9,9 @@ import yaml from 'js-yaml'
  */
 export async function run(): Promise<void> {
   try {
-    const mapping_path = core.getInput('runs-on-mapping-yaml', { required: true })
+    const mapping_path = core.getInput('runs-on-mapping-yaml', {
+      required: true
+    })
     const repository = core.getInput('repository', { required: true })
     const default_runs_on = core.getInput('default-runs-on', { required: true })
 
@@ -17,16 +19,16 @@ export async function run(): Promise<void> {
     const file_content = await fs.promises
       .readFile(mapping_path, 'utf-8')
       .catch((error) => {
-        if (error.code === 'ENOENT') {
-          core.error(`Mapping file not found: ${mapping_path}`)
-        } else {
-          core.error(`Failed to read mapping file: ${error.message}`)
-        }
-        throw error
+        const message = `Failed to read mapping file: ${mapping_path}`
+        core.error(message)
+        throw new Error(message, { cause: error.cause })
       })
 
     // throws YAMLException on failure
-    const mapping_yaml = yaml.load(file_content) as { [runs_on: string]: string[] }
+    const mapping_yaml = yaml.load(file_content) as {
+      [runs_on: string]: string[]
+    }
+
     // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
     core.debug(`mapping_yaml type: ${typeof mapping_yaml}`)
     core.debug(`mapping_yaml keys: ${Object.keys(mapping_yaml)}`)
@@ -51,6 +53,8 @@ export async function run(): Promise<void> {
     core.setOutput('runs_on', runs_on)
   } catch (error) {
     // Fail the workflow run if an error occurs
-    if (error instanceof Error) core.setFailed(error.message)
+    core.debug(JSON.stringify(error, null, 2))
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    core.setFailed(message)
   }
 }
