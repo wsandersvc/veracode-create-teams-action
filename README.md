@@ -6,6 +6,9 @@
 ![CodeQL](https://github.com/wsandersvc/select-runs-on-action/actions/workflows/codeql-analysis.yml/badge.svg)
 ![Coverage](./badges/coverage.svg)
 
+## Roadmap
+- Specify configuration repository.
+
 ## Initial Setup
 
 > [!NOTE]
@@ -165,7 +168,8 @@ steps:
 ```
 
 For example workflow runs, check out the
-[Actions tab](https://github.com/wsandersvc/select-runs-on-action/actions)! :rocket:
+[Actions tab](https://github.com/wsandersvc/select-runs-on-action/actions)!
+:rocket:
 
 ## Usage
 
