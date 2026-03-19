@@ -48,6 +48,9 @@ async function fetchFileFromRepo(options: FetchFileOptions): Promise<string> {
     throw new Error('Unknown error', { cause: error })
   }
 }
+export const test = {
+  fetchFileFromRepo
+}
 
 /**
  * The main function for the action.
