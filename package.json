@@ -1,7 +1,7 @@
 {
   "name": "select-runs-on-action",
   "description": "select-runs-on-action",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "author": "",
   "type": "module",
   "private": true,
@@ -38,6 +38,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^3.0.0",
+    "@actions/github": "^9.0.0",
     "js-yaml": "^4.1.1"
   },
   "devDependencies": {
