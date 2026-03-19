@@ -16,6 +16,12 @@
 
 ## Modify Veracode Workflow App
 
+Please see [action.yml](./action.yml) for supported inputs and outputs. You will
+need to update the relevant sections for `build_runs_on` and `default_runs_on`
+with the following: `${{ needs.runs_on_validations.outputs.override_runs_on }}`
+and set the `runs_on_validations` job as a `need` in jobs where the
+override_runs_on output is referenced.
+
 ```yaml
 runs_on_validations:
   needs: validations
