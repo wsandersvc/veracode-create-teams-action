@@ -94,34 +94,36 @@ with:
 
 **Enable Debug Logging**
 
-   ```yaml
-   # In your repository settings
-   Secrets → Actions → Add secret
-   Name: ACTIONS_STEP_DEBUG
-   Value: true
-   ```
+```yaml
+# In your repository settings
+Secrets → Actions → Add secret
+Name: ACTIONS_STEP_DEBUG
+Value: true
+```
 
 **Check Action Logs**
-   - Look for info messages about which repository was found/not found
-   - Check for warnings about skipped YAML entries
-   - Review error messages for specific failure reasons
+
+- Look for info messages about which repository was found/not found
+- Check for warnings about skipped YAML entries
+- Review error messages for specific failure reasons
 
 **Validate YAML File Locally**
 
-   ```bash
-   # Check YAML syntax
-   yamllint runs-on-mapping.yaml
+```bash
+# Check YAML syntax
+yamllint runs-on-mapping.yaml
 
-   # Or use Python
-   python -c "import yaml; yaml.safe_load(open('runs-on-mapping.yaml'))"
-   ```
+# Or use Python
+python -c "import yaml; yaml.safe_load(open('runs-on-mapping.yaml'))"
+```
 
 **Test with Simple Configuration**
-   ```yaml
-   # Minimal test configuration
-   ubuntu-latest:
-     - test-repo
-   ```
+
+```yaml
+# Minimal test configuration
+ubuntu-latest:
+  - test-repo
+```
 
 ### Getting Help
 
