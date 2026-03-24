@@ -68,4 +68,6 @@ jobs:
 
       - name: Print Output
         id: output
-        run: echo "${{ steps.test-action.outputs.runs-on }}"
+        run: |
+          echo "${{ steps.test-action.outputs.build-runs-on }}"
+          echo "${{ steps.test-action.outputs.default-runs-on }}"
