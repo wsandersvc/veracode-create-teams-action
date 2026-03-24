@@ -129,12 +129,12 @@ ubuntu-latest:
 
 If you encounter issues not covered here:
 
-1. Check the
-   [GitHub Issues](https://github.com/wsandersvc/select-runs-on-action/issues)
-   for similar problems
-2. Review the action logs for specific error messages
-3. Open a new issue with:
-   - Full error message
-   - Relevant action configuration (sanitized, no secrets)
-   - Steps to reproduce
-   - Expected vs actual behavior
+Check the
+[GitHub Issues](https://github.com/wsandersvc/select-runs-on-action/issues) for
+similar problems Review the action logs for specific error messages Open a new
+issue with:
+
+- Full error message
+- Relevant action configuration (sanitized, no secrets)
+- Steps to reproduce
+- Expected vs actual behavior
