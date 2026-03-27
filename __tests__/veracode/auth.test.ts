@@ -111,15 +111,17 @@ describe('veracode/auth.ts', () => {
 
   describe('getBaseUrl', () => {
     it('should return correct URL for US region', () => {
-      expect(getBaseUrl('US')).toBe('https://api.veracode.com')
+      expect(getBaseUrl('US')).toBe('https://api.veracode.com/api/authn')
     })
 
     it('should return correct URL for EU region', () => {
-      expect(getBaseUrl('EU')).toBe('https://api.veracode.eu')
+      expect(getBaseUrl('EU')).toBe('https://api.veracode.eu/api/authn')
     })
 
     it('should return correct URL for FEDERAL region', () => {
-      expect(getBaseUrl('FEDERAL')).toBe('https://api.fed.veracode.us')
+      expect(getBaseUrl('FEDERAL')).toBe(
+        'https://api.fed.veracode.us/api/authn'
+      )
     })
   })
 

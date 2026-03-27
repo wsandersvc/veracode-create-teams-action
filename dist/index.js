@@ -85899,60 +85899,72 @@ class VeracodeActionError extends Error {
     }
 }
 /**
+ * HTTP status code to error category mapping
+ */
+const STATUS_CODE_MAP = {
+    400: ErrorCategory.VALIDATION,
+    401: ErrorCategory.AUTHENTICATION,
+    403: ErrorCategory.AUTHORIZATION,
+    404: ErrorCategory.NOT_FOUND
+};
+/**
+ * Network error codes
+ */
+const NETWORK_ERROR_CODES = new Set([
+    'ECONNREFUSED',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'ENETUNREACH'
+]);
+/**
+ * Retryable HTTP status codes
+ */
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+/**
  * Categorizes an error based on its properties
  */
 function categorizeError(error) {
-    // Type guard for error-like objects
-    const err = error;
-    // Check for HTTP response status codes
-    if (err.response?.status === 401) {
-        return ErrorCategory.AUTHENTICATION;
-    }
-    if (err.response?.status === 403) {
-        return ErrorCategory.AUTHORIZATION;
-    }
-    if (err.response?.status === 400) {
-        return ErrorCategory.VALIDATION;
-    }
-    if (err.response?.status === 404) {
-        return ErrorCategory.NOT_FOUND;
-    }
-    if (err.response?.status && err.response.status >= 500) {
-        return ErrorCategory.API_ERROR;
-    }
-    // Check for network errors
-    if (err.code === 'ECONNREFUSED' ||
-        err.code === 'ETIMEDOUT' ||
-        err.code === 'ENOTFOUND' ||
-        err.code === 'ENETUNREACH') {
-        return ErrorCategory.NETWORK;
-    }
-    // Check if it's already a VeracodeActionError
     if (error instanceof VeracodeActionError) {
         return error.category;
     }
-    // Default to configuration error for unknown errors
+    const err = error;
+    // Check HTTP status codes
+    if (err.response?.status) {
+        const status = err.response.status;
+        if (STATUS_CODE_MAP[status]) {
+            return STATUS_CODE_MAP[status];
+        }
+        if (status >= 500) {
+            return ErrorCategory.API_ERROR;
+        }
+    }
+    // Check network errors
+    if (err.code && NETWORK_ERROR_CODES.has(err.code)) {
+        return ErrorCategory.NETWORK;
+    }
     return ErrorCategory.CONFIGURATION;
 }
 /**
  * Determines if an error is retryable based on category and status code
  */
 function isRetryable(category, statusCode) {
-    // Rate limiting (429) is retryable regardless of category
-    if (statusCode === 429) {
+    if (statusCode && RETRYABLE_STATUS_CODES.has(statusCode)) {
         return true;
     }
-    // Network errors are always retryable
-    if (category === ErrorCategory.NETWORK) {
-        return true;
-    }
-    // Server errors (5xx) are retryable
-    if (category === ErrorCategory.API_ERROR && statusCode) {
-        return [500, 502, 503, 504].includes(statusCode);
-    }
-    // All other errors are not retryable
-    return false;
+    return category === ErrorCategory.NETWORK;
 }
+/**
+ * Error category to user-friendly message prefix mapping
+ */
+({
+    [ErrorCategory.AUTHENTICATION]: 'Authentication failed. Please check your Veracode API credentials.',
+    [ErrorCategory.AUTHORIZATION]: 'Authorization failed. Ensure your API user has Team Admin permissions.',
+    [ErrorCategory.VALIDATION]: 'Validation error. Check your input parameters and configuration.',
+    [ErrorCategory.API_ERROR]: 'Veracode API error. The service may be temporarily unavailable.',
+    [ErrorCategory.NETWORK]: 'Network error. Please check your connection and try again.',
+    [ErrorCategory.CONFIGURATION]: 'Configuration error. Please check your team-mapping.yaml file.',
+    [ErrorCategory.NOT_FOUND]: 'Resource not found.'
+});
 
 /**
  * Veracode Identity API client
@@ -86174,49 +86186,52 @@ class UserValidator {
         for (const member of members) {
             const result = await this.validateUser(member.user);
             if (result.valid) {
-                const veracodeUser = result.veracodeUser;
-                let relationship = member.relationship;
-                // Check if user has Team Admin role when ADMIN relationship is requested
-                if (relationship === 'ADMIN') {
-                    const hasTeamAdminRole = this.hasTeamAdminRole(veracodeUser);
-                    if (!hasTeamAdminRole) {
-                        warning(`User ${member.user} does not have the 'Team Admin' role. ` +
-                            `Downgrading relationship from ADMIN to MEMBER.`);
-                        relationship = 'MEMBER';
-                    }
-                }
                 validMembers.push({
-                    user: veracodeUser.user_name, // Use user_name, not email
-                    relationship
+                    user: result.veracodeUser.user_name,
+                    relationship: this.determineRelationship(member.relationship, result.veracodeUser)
                 });
                 debug(`✓ Validated user: ${member.user}`);
             }
             else {
-                invalidMembers.push({
-                    user: member.user,
-                    reason: result.reason
-                });
+                invalidMembers.push({ user: member.user, reason: result.reason });
                 warning(`✗ Invalid user: ${member.user} - ${result.reason}`);
             }
         }
-        // Log summary
+        this.logValidationSummary(validMembers.length, invalidMembers);
+        return { validMembers, invalidMembers };
+    }
+    /**
+     * Determines the appropriate relationship for a user
+     */
+    determineRelationship(requestedRelationship, user) {
+        if (requestedRelationship === 'ADMIN' && !this.hasTeamAdminRole(user)) {
+            warning(`User ${user.user_name} does not have the 'Team Admin' role. ` +
+                `Downgrading relationship from ADMIN to MEMBER.`);
+            return 'MEMBER';
+        }
+        return requestedRelationship;
+    }
+    /**
+     * Logs validation summary
+     */
+    logValidationSummary(validCount, invalidMembers) {
         info('Validation complete:');
-        info(`  ✓ Valid members: ${validMembers.length}`);
+        info(`  ✓ Valid members: ${validCount}`);
         info(`  ✗ Invalid members: ${invalidMembers.length}`);
         if (invalidMembers.length > 0) {
             warning(`${invalidMembers.length} users will be skipped:`);
-            for (const invalid of invalidMembers) {
+            invalidMembers.forEach((invalid) => {
                 warning(`  - ${invalid.user}: ${invalid.reason}`);
-            }
+            });
         }
-        return { validMembers, invalidMembers };
     }
     /**
      * Validates a single user
      */
     async validateUser(emailOrUsername) {
+        const normalizedKey = normalizeEmail(emailOrUsername);
         // Check cache first
-        const cached = this.userCache.get(normalizeEmail(emailOrUsername));
+        const cached = this.userCache.get(normalizedKey);
         if (cached !== undefined) {
             if (cached === null) {
                 return {
@@ -86236,21 +86251,17 @@ class UserValidator {
                 search_term: emailOrUsername,
                 pageable: { page: 0, size: 50 }
             });
-            // Find exact match
-            const normalizedSearch = normalizeEmail(emailOrUsername);
-            const user = response.users.find((u) => normalizeEmail(u.email_address) === normalizedSearch ||
-                normalizeEmail(u.user_name) === normalizedSearch);
+            const user = response.users.find((u) => normalizeEmail(u.email_address) === normalizedKey ||
+                normalizeEmail(u.user_name) === normalizedKey);
             if (!user) {
                 debug(`User not found in Veracode: ${emailOrUsername}`);
-                this.userCache.set(normalizedSearch, null);
+                this.userCache.set(normalizedKey, null);
                 return {
                     valid: false,
                     reason: 'User does not exist in Veracode platform'
                 };
             }
-            // Cache the user
-            this.userCache.set(normalizedSearch, user);
-            // Check if user is active
+            this.userCache.set(normalizedKey, user);
             if (!user.active) {
                 debug(`User is inactive: ${emailOrUsername}`);
                 return { valid: false, reason: 'User account is inactive' };
@@ -86270,12 +86281,7 @@ class UserValidator {
      * Checks if a user has the Team Admin role
      */
     hasTeamAdminRole(user) {
-        if (!user.roles || user.roles.length === 0) {
-            return false;
-        }
-        // Check for Team Admin role by name
-        // Common variations: 'teamadmin', 'team admin', 'Team Admin'
-        return user.roles.some((role) => role.role_name?.toLowerCase() === 'teamadmin');
+        return (user.roles?.some((role) => role.role_name?.toLowerCase() === 'teamadmin') ?? false);
     }
     /**
      * Clears the user cache
@@ -86312,24 +86318,19 @@ class TeamService {
      */
     async findTeamByName(teamName) {
         info(`Searching for team: ${teamName}`);
-        let page = 0;
-        while (page < MAX_PAGES) {
+        for (let page = 0; page < MAX_PAGES; page++) {
             const response = await this.veracodeClient.getTeams({
                 pageable: { page, size: PAGE_SIZE },
                 team_name: teamName,
                 ignore_self_teams: true
             });
-            // Search for exact match (API may return partial matches)
             const exactMatch = response.teams.find((team) => team.team_name === teamName);
             if (exactMatch) {
                 info(`Found existing team: ${teamName} (${exactMatch.team_id})`);
                 return exactMatch;
             }
-            // Check if there are more pages
-            if (response.teams.length < PAGE_SIZE) {
+            if (response.teams.length < PAGE_SIZE)
                 break;
-            }
-            page++;
         }
         info(`Team not found: ${teamName}`);
         return null;
@@ -86339,7 +86340,6 @@ class TeamService {
      */
     async createTeam(config) {
         info(`Creating new team: ${config.team_name}`);
-        // Create the team first
         const team = await this.veracodeClient.createTeam({
             team_name: config.team_name,
             bu_name: config.business_unit,
@@ -86347,10 +86347,9 @@ class TeamService {
             description: config.description
         });
         info(`Team created successfully: ${team.team_name} (${team.team_id})`);
-        // Add members if any
         if (config.members.length > 0) {
             info(`Adding ${config.members.length} members to team...`);
-            await this.addMembersToTeam(team.team_id, config.members);
+            await this.updateTeamMembers(team.team_id, config.members);
             info(`Members added successfully`);
         }
         return team;
@@ -86360,7 +86359,7 @@ class TeamService {
      */
     async updateTeam(teamId, config) {
         info(`Updating team: ${config.team_name} (${teamId})`);
-        const teamUpdate = {
+        const updatedTeam = await this.veracodeClient.updateTeam(teamId, {
             team_name: config.team_name,
             bu_name: config.business_unit,
             member_only: config.member_only,
@@ -86369,22 +86368,19 @@ class TeamService {
                 user_name: m.user,
                 relationship: m.relationship
             }))
-        };
-        // Use partial and incremental flags for safe updates
-        const updatedTeam = await this.veracodeClient.updateTeam(teamId, teamUpdate, {
-            partial: true, // Only update provided fields
-            incremental: true // Add users without removing existing
+        }, {
+            partial: true,
+            incremental: true
         });
         info(`Team updated successfully: ${config.members.length} members processed`);
         return updatedTeam;
     }
     /**
-     * Adds members to an existing team
+     * Updates team members incrementally
      */
-    async addMembersToTeam(teamId, members) {
-        // Use the update endpoint with incremental flag
+    async updateTeamMembers(teamId, members) {
         await this.veracodeClient.updateTeam(teamId, {
-            team_name: '', // Not updated when partial=true
+            team_name: '',
             users: members.map((m) => ({
                 user_name: m.user,
                 relationship: m.relationship
@@ -86403,10 +86399,8 @@ class TeamService {
             const team = await this.updateTeam(existingTeam.team_id, config);
             return { team, action: 'updated' };
         }
-        else {
-            const team = await this.createTeam(config);
-            return { team, action: 'created' };
-        }
+        const team = await this.createTeam(config);
+        return { team, action: 'created' };
     }
 }
 
@@ -86438,34 +86432,39 @@ class GitHubService {
             info(`Found ${collaborators.length} collaborators`);
             const members = [];
             for (const collab of collaborators) {
-                // Determine permission level
-                const permission = this.getPermissionLevel(collab.permissions);
-                // Filter by permission if specified
-                if (filter && filter.length > 0 && !filter.includes(permission)) {
-                    debug(`Skipping ${collab.login} (permission: ${permission})`);
-                    continue;
+                const member = await this.processCollaborator(collab, filter);
+                if (member) {
+                    members.push(member);
+                    debug(`Added collaborator: ${member.user} (${member.relationship})`);
                 }
-                // Fetch user email
-                const email = await this.getUserEmail(collab.login);
-                if (!email) {
-                    warning(`Could not find email for user: ${collab.login}`);
-                    continue;
-                }
-                // Determine relationship based on permissions
-                const relationship = permission === 'admin' ? 'ADMIN' : 'MEMBER';
-                members.push({
-                    user: email,
-                    relationship
-                });
-                debug(`Added collaborator: ${email} (${relationship})`);
             }
             info(`Processed ${members.length} collaborators`);
             return members;
         }
         catch (error$1) {
-            error(`Failed to fetch collaborators: ${error$1.message}`);
+            const message = `Failed to fetch collaborators: ${error$1.message}`;
+            error(message);
             throw error$1;
         }
+    }
+    /**
+     * Processes a single collaborator
+     */
+    async processCollaborator(collab, filter) {
+        const permission = this.getPermissionLevel(collab.permissions);
+        if (filter && !filter.includes(permission)) {
+            debug(`Skipping ${collab.login} (permission: ${permission})`);
+            return null;
+        }
+        const email = await this.getUserEmail(collab.login);
+        if (!email) {
+            warning(`Could not find email for user: ${collab.login}`);
+            return null;
+        }
+        return {
+            user: email,
+            relationship: permission === 'admin' ? 'ADMIN' : 'MEMBER'
+        };
     }
     /**
      * Gets permission level from permissions object
@@ -86499,16 +86498,16 @@ class GitHubService {
     static mergeMembers(configMembers, githubMembers) {
         const memberMap = new Map();
         // Add configured members first (they take precedence)
-        for (const member of configMembers) {
+        configMembers.forEach((member) => {
             memberMap.set(normalizeEmail(member.user), member);
-        }
+        });
         // Add GitHub members if not already present
-        for (const member of githubMembers) {
+        githubMembers.forEach((member) => {
             const normalizedEmail = normalizeEmail(member.user);
             if (!memberMap.has(normalizedEmail)) {
                 memberMap.set(normalizedEmail, member);
             }
-        }
+        });
         return Array.from(memberMap.values());
     }
 }
@@ -90613,6 +90612,44 @@ function setOutputs(outputs) {
     setOutput('members-added', outputs.membersAdded);
     setOutput('members-skipped', outputs.membersSkipped);
     setOutput('skipped-users', outputs.skippedUsers.join(','));
+    info('✓ Outputs set successfully');
+    info(`  Team ID: ${outputs.teamId}`);
+    info(`  Team Name: ${outputs.teamName}`);
+    info(`  Action: ${outputs.actionTaken}`);
+    info(`  Members Added: ${outputs.membersAdded}`);
+    info(`  Members Skipped: ${outputs.membersSkipped}`);
+}
+/**
+ * Writes job summary to GitHub Actions
+ */
+async function writeSummary(outputs) {
+    summary.addHeading('✅ Veracode Team Sync Complete').addTable([
+        [
+            { data: 'Property', header: true },
+            { data: 'Value', header: true }
+        ],
+        ['Team Name', outputs.teamName],
+        ['Team ID', outputs.teamId],
+        ['Action', outputs.actionTaken],
+        ['Members Added', outputs.membersAdded.toString()],
+        ['Members Skipped', outputs.membersSkipped.toString()]
+    ]);
+    if (outputs.skippedUsers.length > 0) {
+        summary.addHeading('⚠️ Skipped Users', 3).addList(outputs.skippedUsers);
+    }
+    await summary.write();
+}
+/**
+ * Writes error summary to GitHub Actions
+ */
+async function writeErrorSummary(error) {
+    summary
+        .addHeading('❌ Action Failed')
+        .addCodeBlock(error.message, 'text');
+    if (error.stack) {
+        summary.addDetails('Stack Trace', error.stack);
+    }
+    await summary.write();
 }
 /**
  * The main function for the action.
@@ -90654,12 +90691,11 @@ async function run() {
         info(`Team name: ${teamConfig.team_name}`);
         info(`Base members: ${teamConfig.members.length}`);
         endGroup();
-        // 5. Fetch GitHub collaborators if configured
+        // 5. Fetch and merge GitHub collaborators if configured
         if (teamConfig.sync_github_collaborators) {
             startGroup('👥 Fetching GitHub collaborators');
             const githubMembers = await githubService.fetchCollaborators(inputs.owner, inputs.repository, teamConfig.github_collaborator_filter);
             info(`Found ${githubMembers.length} GitHub collaborators`);
-            // Merge with configured members
             const mergedMembers = GitHubService.mergeMembers(teamConfig.members, githubMembers);
             teamConfig = { ...teamConfig, members: mergedMembers };
             info(`Total members after merge: ${teamConfig.members.length}`);
@@ -90672,7 +90708,6 @@ async function run() {
             warning(`${validationResult.invalidMembers.length} users will be skipped ` +
                 `(not found or inactive in Veracode)`);
         }
-        // Update config with only validated members
         teamConfig = {
             ...teamConfig,
             members: validationResult.validMembers
@@ -90699,7 +90734,7 @@ async function run() {
             info(`✓ Team updated: ${team.team_name} (${team.team_id})`);
             endGroup();
         }
-        // 9. Set outputs
+        // 9. Set outputs and write summary
         startGroup('📤 Setting outputs');
         const outputs = {
             teamId: team.team_id,
@@ -90712,43 +90747,13 @@ async function run() {
             skippedUsers: validationResult.invalidMembers.map((m) => m.user)
         };
         setOutputs(outputs);
-        info('✓ Outputs set successfully');
-        info(`  Team ID: ${outputs.teamId}`);
-        info(`  Team Name: ${outputs.teamName}`);
-        info(`  Action: ${outputs.actionTaken}`);
-        info(`  Members Added: ${outputs.membersAdded}`);
-        info(`  Members Skipped: ${outputs.membersSkipped}`);
         endGroup();
-        // 10. Summary
-        summary.addHeading('✅ Veracode Team Sync Complete').addTable([
-            [
-                { data: 'Property', header: true },
-                { data: 'Value', header: true }
-            ],
-            ['Team Name', outputs.teamName],
-            ['Team ID', outputs.teamId],
-            ['Action', outputs.actionTaken],
-            ['Members Added', outputs.membersAdded.toString()],
-            ['Members Skipped', outputs.membersSkipped.toString()]
-        ]);
-        if (outputs.skippedUsers.length > 0) {
-            summary
-                .addHeading('⚠️ Skipped Users', 3)
-                .addList(outputs.skippedUsers);
-        }
-        await summary.write();
+        await writeSummary(outputs);
     }
     catch (error) {
         const err = error;
         setFailed(err.message);
-        // Add error details to job summary
-        summary
-            .addHeading('❌ Action Failed')
-            .addCodeBlock(err.message, 'text');
-        if (err.stack) {
-            summary.addDetails('Stack Trace', err.stack);
-        }
-        await summary.write();
+        await writeErrorSummary(err);
     }
 }
 

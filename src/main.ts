@@ -102,6 +102,51 @@ function setOutputs(outputs: ActionOutputs): void {
   core.setOutput('members-added', outputs.membersAdded)
   core.setOutput('members-skipped', outputs.membersSkipped)
   core.setOutput('skipped-users', outputs.skippedUsers.join(','))
+
+  core.info('✓ Outputs set successfully')
+  core.info(`  Team ID: ${outputs.teamId}`)
+  core.info(`  Team Name: ${outputs.teamName}`)
+  core.info(`  Action: ${outputs.actionTaken}`)
+  core.info(`  Members Added: ${outputs.membersAdded}`)
+  core.info(`  Members Skipped: ${outputs.membersSkipped}`)
+}
+
+/**
+ * Writes job summary to GitHub Actions
+ */
+async function writeSummary(outputs: ActionOutputs): Promise<void> {
+  core.summary.addHeading('✅ Veracode Team Sync Complete').addTable([
+    [
+      { data: 'Property', header: true },
+      { data: 'Value', header: true }
+    ],
+    ['Team Name', outputs.teamName],
+    ['Team ID', outputs.teamId],
+    ['Action', outputs.actionTaken],
+    ['Members Added', outputs.membersAdded.toString()],
+    ['Members Skipped', outputs.membersSkipped.toString()]
+  ])
+
+  if (outputs.skippedUsers.length > 0) {
+    core.summary.addHeading('⚠️ Skipped Users', 3).addList(outputs.skippedUsers)
+  }
+
+  await core.summary.write()
+}
+
+/**
+ * Writes error summary to GitHub Actions
+ */
+async function writeErrorSummary(error: Error): Promise<void> {
+  core.summary
+    .addHeading('❌ Action Failed')
+    .addCodeBlock(error.message, 'text')
+
+  if (error.stack) {
+    core.summary.addDetails('Stack Trace', error.stack)
+  }
+
+  await core.summary.write()
 }
 
 /**
@@ -159,7 +204,7 @@ export async function run(): Promise<void> {
     core.info(`Base members: ${teamConfig.members.length}`)
     core.endGroup()
 
-    // 5. Fetch GitHub collaborators if configured
+    // 5. Fetch and merge GitHub collaborators if configured
     if (teamConfig.sync_github_collaborators) {
       core.startGroup('👥 Fetching GitHub collaborators')
       const githubMembers = await githubService.fetchCollaborators(
@@ -169,7 +214,6 @@ export async function run(): Promise<void> {
       )
       core.info(`Found ${githubMembers.length} GitHub collaborators`)
 
-      // Merge with configured members
       const mergedMembers = GitHubService.mergeMembers(
         teamConfig.members,
         githubMembers
@@ -192,7 +236,6 @@ export async function run(): Promise<void> {
       )
     }
 
-    // Update config with only validated members
     teamConfig = {
       ...teamConfig,
       members: validationResult.validMembers
@@ -231,7 +274,7 @@ export async function run(): Promise<void> {
       core.endGroup()
     }
 
-    // 9. Set outputs
+    // 9. Set outputs and write summary
     core.startGroup('📤 Setting outputs')
     const outputs: ActionOutputs = {
       teamId: team.team_id,
@@ -244,48 +287,12 @@ export async function run(): Promise<void> {
       skippedUsers: validationResult.invalidMembers.map((m) => m.user)
     }
     setOutputs(outputs)
-
-    core.info('✓ Outputs set successfully')
-    core.info(`  Team ID: ${outputs.teamId}`)
-    core.info(`  Team Name: ${outputs.teamName}`)
-    core.info(`  Action: ${outputs.actionTaken}`)
-    core.info(`  Members Added: ${outputs.membersAdded}`)
-    core.info(`  Members Skipped: ${outputs.membersSkipped}`)
     core.endGroup()
 
-    // 10. Summary
-    core.summary.addHeading('✅ Veracode Team Sync Complete').addTable([
-      [
-        { data: 'Property', header: true },
-        { data: 'Value', header: true }
-      ],
-      ['Team Name', outputs.teamName],
-      ['Team ID', outputs.teamId],
-      ['Action', outputs.actionTaken],
-      ['Members Added', outputs.membersAdded.toString()],
-      ['Members Skipped', outputs.membersSkipped.toString()]
-    ])
-
-    if (outputs.skippedUsers.length > 0) {
-      core.summary
-        .addHeading('⚠️ Skipped Users', 3)
-        .addList(outputs.skippedUsers)
-    }
-
-    await core.summary.write()
+    await writeSummary(outputs)
   } catch (error) {
     const err = error as Error
     core.setFailed(err.message)
-
-    // Add error details to job summary
-    core.summary
-      .addHeading('❌ Action Failed')
-      .addCodeBlock(err.message, 'text')
-
-    if (err.stack) {
-      core.summary.addDetails('Stack Trace', err.stack)
-    }
-
-    await core.summary.write()
+    await writeErrorSummary(err)
   }
 }

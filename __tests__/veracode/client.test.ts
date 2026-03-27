@@ -46,7 +46,7 @@ describe('veracode/client.ts', () => {
     it('should create client with US region by default', () => {
       expect(mockAxiosCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          baseURL: 'https://api.veracode.com',
+          baseURL: 'https://api.veracode.com/api/authn',
           timeout: 30000
         })
       )
@@ -58,7 +58,7 @@ describe('veracode/client.ts', () => {
 
       expect(mockAxiosCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          baseURL: 'https://api.veracode.eu'
+          baseURL: 'https://api.veracode.eu/api/authn'
         })
       )
     })
@@ -69,7 +69,7 @@ describe('veracode/client.ts', () => {
 
       expect(mockAxiosCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          baseURL: 'https://api.fed.veracode.us'
+          baseURL: 'https://api.fed.veracode.us/api/authn'
         })
       )
     })

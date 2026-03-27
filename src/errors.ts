@@ -33,48 +33,59 @@ export class VeracodeActionError extends Error {
 }
 
 /**
+ * HTTP status code to error category mapping
+ */
+const STATUS_CODE_MAP: Record<number, ErrorCategory> = {
+  400: ErrorCategory.VALIDATION,
+  401: ErrorCategory.AUTHENTICATION,
+  403: ErrorCategory.AUTHORIZATION,
+  404: ErrorCategory.NOT_FOUND
+}
+
+/**
+ * Network error codes
+ */
+const NETWORK_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'ENETUNREACH'
+])
+
+/**
+ * Retryable HTTP status codes
+ */
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504])
+
+/**
  * Categorizes an error based on its properties
  */
 export function categorizeError(error: Error | unknown): ErrorCategory {
-  // Type guard for error-like objects
+  if (error instanceof VeracodeActionError) {
+    return error.category
+  }
+
   const err = error as {
     response?: { status?: number }
     code?: string
   }
 
-  // Check for HTTP response status codes
-  if (err.response?.status === 401) {
-    return ErrorCategory.AUTHENTICATION
-  }
-  if (err.response?.status === 403) {
-    return ErrorCategory.AUTHORIZATION
-  }
-  if (err.response?.status === 400) {
-    return ErrorCategory.VALIDATION
-  }
-  if (err.response?.status === 404) {
-    return ErrorCategory.NOT_FOUND
-  }
-  if (err.response?.status && err.response.status >= 500) {
-    return ErrorCategory.API_ERROR
+  // Check HTTP status codes
+  if (err.response?.status) {
+    const status = err.response.status
+    if (STATUS_CODE_MAP[status]) {
+      return STATUS_CODE_MAP[status]
+    }
+    if (status >= 500) {
+      return ErrorCategory.API_ERROR
+    }
   }
 
-  // Check for network errors
-  if (
-    err.code === 'ECONNREFUSED' ||
-    err.code === 'ETIMEDOUT' ||
-    err.code === 'ENOTFOUND' ||
-    err.code === 'ENETUNREACH'
-  ) {
+  // Check network errors
+  if (err.code && NETWORK_ERROR_CODES.has(err.code)) {
     return ErrorCategory.NETWORK
   }
 
-  // Check if it's already a VeracodeActionError
-  if (error instanceof VeracodeActionError) {
-    return error.category
-  }
-
-  // Default to configuration error for unknown errors
   return ErrorCategory.CONFIGURATION
 }
 
@@ -85,23 +96,30 @@ export function isRetryable(
   category: ErrorCategory,
   statusCode?: number
 ): boolean {
-  // Rate limiting (429) is retryable regardless of category
-  if (statusCode === 429) {
+  if (statusCode && RETRYABLE_STATUS_CODES.has(statusCode)) {
     return true
   }
 
-  // Network errors are always retryable
-  if (category === ErrorCategory.NETWORK) {
-    return true
-  }
+  return category === ErrorCategory.NETWORK
+}
 
-  // Server errors (5xx) are retryable
-  if (category === ErrorCategory.API_ERROR && statusCode) {
-    return [500, 502, 503, 504].includes(statusCode)
-  }
-
-  // All other errors are not retryable
-  return false
+/**
+ * Error category to user-friendly message prefix mapping
+ */
+const ERROR_MESSAGE_PREFIXES: Record<ErrorCategory, string> = {
+  [ErrorCategory.AUTHENTICATION]:
+    'Authentication failed. Please check your Veracode API credentials.',
+  [ErrorCategory.AUTHORIZATION]:
+    'Authorization failed. Ensure your API user has Team Admin permissions.',
+  [ErrorCategory.VALIDATION]:
+    'Validation error. Check your input parameters and configuration.',
+  [ErrorCategory.API_ERROR]:
+    'Veracode API error. The service may be temporarily unavailable.',
+  [ErrorCategory.NETWORK]:
+    'Network error. Please check your connection and try again.',
+  [ErrorCategory.CONFIGURATION]:
+    'Configuration error. Please check your team-mapping.yaml file.',
+  [ErrorCategory.NOT_FOUND]: 'Resource not found.'
 }
 
 /**
@@ -111,29 +129,6 @@ export function getUserFriendlyMessage(
   category: ErrorCategory,
   originalMessage: string
 ): string {
-  switch (category) {
-    case ErrorCategory.AUTHENTICATION:
-      return `Authentication failed. Please check your Veracode API credentials. ${originalMessage}`
-
-    case ErrorCategory.AUTHORIZATION:
-      return `Authorization failed. Ensure your API user has Team Admin permissions. ${originalMessage}`
-
-    case ErrorCategory.VALIDATION:
-      return `Validation error. Check your input parameters and configuration. ${originalMessage}`
-
-    case ErrorCategory.API_ERROR:
-      return `Veracode API error. The service may be temporarily unavailable. ${originalMessage}`
-
-    case ErrorCategory.NETWORK:
-      return `Network error. Please check your connection and try again. ${originalMessage}`
-
-    case ErrorCategory.CONFIGURATION:
-      return `Configuration error. Please check your team-mapping.yaml file. ${originalMessage}`
-
-    case ErrorCategory.NOT_FOUND:
-      return `Resource not found. ${originalMessage}`
-
-    default:
-      return originalMessage
-  }
+  const prefix = ERROR_MESSAGE_PREFIXES[category] || ''
+  return prefix ? `${prefix} ${originalMessage}` : originalMessage
 }

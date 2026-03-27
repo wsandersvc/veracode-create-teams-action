@@ -40,49 +40,58 @@ export class UserValidator {
       const result = await this.validateUser(member.user)
 
       if (result.valid) {
-        const veracodeUser = result.veracodeUser!
-        let relationship = member.relationship
-
-        // Check if user has Team Admin role when ADMIN relationship is requested
-        if (relationship === 'ADMIN') {
-          const hasTeamAdminRole = this.hasTeamAdminRole(veracodeUser)
-
-          if (!hasTeamAdminRole) {
-            core.warning(
-              `User ${member.user} does not have the 'Team Admin' role. ` +
-                `Downgrading relationship from ADMIN to MEMBER.`
-            )
-            relationship = 'MEMBER'
-          }
-        }
-
         validMembers.push({
-          user: veracodeUser.user_name, // Use user_name, not email
-          relationship
+          user: result.veracodeUser!.user_name,
+          relationship: this.determineRelationship(
+            member.relationship,
+            result.veracodeUser!
+          )
         })
         core.debug(`✓ Validated user: ${member.user}`)
       } else {
-        invalidMembers.push({
-          user: member.user,
-          reason: result.reason
-        })
+        invalidMembers.push({ user: member.user, reason: result.reason })
         core.warning(`✗ Invalid user: ${member.user} - ${result.reason}`)
       }
     }
 
-    // Log summary
+    this.logValidationSummary(validMembers.length, invalidMembers)
+    return { validMembers, invalidMembers }
+  }
+
+  /**
+   * Determines the appropriate relationship for a user
+   */
+  private determineRelationship(
+    requestedRelationship: 'ADMIN' | 'MEMBER',
+    user: VeracodeUser
+  ): 'ADMIN' | 'MEMBER' {
+    if (requestedRelationship === 'ADMIN' && !this.hasTeamAdminRole(user)) {
+      core.warning(
+        `User ${user.user_name} does not have the 'Team Admin' role. ` +
+          `Downgrading relationship from ADMIN to MEMBER.`
+      )
+      return 'MEMBER'
+    }
+    return requestedRelationship
+  }
+
+  /**
+   * Logs validation summary
+   */
+  private logValidationSummary(
+    validCount: number,
+    invalidMembers: InvalidMember[]
+  ): void {
     core.info('Validation complete:')
-    core.info(`  ✓ Valid members: ${validMembers.length}`)
+    core.info(`  ✓ Valid members: ${validCount}`)
     core.info(`  ✗ Invalid members: ${invalidMembers.length}`)
 
     if (invalidMembers.length > 0) {
       core.warning(`${invalidMembers.length} users will be skipped:`)
-      for (const invalid of invalidMembers) {
+      invalidMembers.forEach((invalid) => {
         core.warning(`  - ${invalid.user}: ${invalid.reason}`)
-      }
+      })
     }
-
-    return { validMembers, invalidMembers }
   }
 
   /**
@@ -93,8 +102,10 @@ export class UserValidator {
     reason: string
     veracodeUser?: VeracodeUser
   }> {
+    const normalizedKey = normalizeEmail(emailOrUsername)
+
     // Check cache first
-    const cached = this.userCache.get(normalizeEmail(emailOrUsername))
+    const cached = this.userCache.get(normalizedKey)
     if (cached !== undefined) {
       if (cached === null) {
         return {
@@ -117,27 +128,23 @@ export class UserValidator {
         pageable: { page: 0, size: 50 }
       })
 
-      // Find exact match
-      const normalizedSearch = normalizeEmail(emailOrUsername)
       const user = response.users.find(
         (u) =>
-          normalizeEmail(u.email_address) === normalizedSearch ||
-          normalizeEmail(u.user_name) === normalizedSearch
+          normalizeEmail(u.email_address) === normalizedKey ||
+          normalizeEmail(u.user_name) === normalizedKey
       )
 
       if (!user) {
         core.debug(`User not found in Veracode: ${emailOrUsername}`)
-        this.userCache.set(normalizedSearch, null)
+        this.userCache.set(normalizedKey, null)
         return {
           valid: false,
           reason: 'User does not exist in Veracode platform'
         }
       }
 
-      // Cache the user
-      this.userCache.set(normalizedSearch, user)
+      this.userCache.set(normalizedKey, user)
 
-      // Check if user is active
       if (!user.active) {
         core.debug(`User is inactive: ${emailOrUsername}`)
         return { valid: false, reason: 'User account is inactive' }
@@ -158,14 +165,10 @@ export class UserValidator {
    * Checks if a user has the Team Admin role
    */
   private hasTeamAdminRole(user: VeracodeUser): boolean {
-    if (!user.roles || user.roles.length === 0) {
-      return false
-    }
-
-    // Check for Team Admin role by name
-    // Common variations: 'teamadmin', 'team admin', 'Team Admin'
-    return user.roles.some(
-      (role) => role.role_name?.toLowerCase() === 'teamadmin'
+    return (
+      user.roles?.some(
+        (role) => role.role_name?.toLowerCase() === 'teamadmin'
+      ) ?? false
     )
   }
 

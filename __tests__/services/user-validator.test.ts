@@ -68,8 +68,8 @@ describe('services/user-validator.ts', () => {
 
       expect(result.validMembers).toHaveLength(2)
       expect(result.invalidMembers).toHaveLength(0)
-      expect(result.validMembers[0].user).toBe('user1@example.com')
-      expect(result.validMembers[1].user).toBe('user2@example.com')
+      expect(result.validMembers[0].user).toBe('user1')
+      expect(result.validMembers[1].user).toBe('user2')
     })
 
     it('should handle mix of valid and invalid members', async () => {
@@ -101,7 +101,7 @@ describe('services/user-validator.ts', () => {
 
       expect(result.validMembers).toHaveLength(1)
       expect(result.invalidMembers).toHaveLength(1)
-      expect(result.validMembers[0].user).toBe('valid@example.com')
+      expect(result.validMembers[0].user).toBe('valid')
       expect(result.invalidMembers[0].user).toBe('invalid@example.com')
       expect(result.invalidMembers[0].reason).toContain(
         'does not exist in Veracode platform'
@@ -204,7 +204,7 @@ describe('services/user-validator.ts', () => {
       const result = await validator.validateTeamMembers(members)
 
       expect(result.validMembers).toHaveLength(1)
-      expect(result.validMembers[0].user).toBe('user@example.com') // Normalized
+      expect(result.validMembers[0].user).toBe('user') // Uses user_name from API
     })
 
     it('should match by username if email not found', async () => {
@@ -227,7 +227,7 @@ describe('services/user-validator.ts', () => {
       const result = await validator.validateTeamMembers(members)
 
       expect(result.validMembers).toHaveLength(1)
-      expect(result.validMembers[0].user).toBe('john.doe@example.com')
+      expect(result.validMembers[0].user).toBe('jdoe') // Uses user_name from API
     })
 
     it('should log validation summary', async () => {

@@ -24,16 +24,13 @@ export class TeamService {
   async findTeamByName(teamName: string): Promise<VeracodeTeam | null> {
     core.info(`Searching for team: ${teamName}`)
 
-    let page = 0
-
-    while (page < MAX_PAGES) {
+    for (let page = 0; page < MAX_PAGES; page++) {
       const response = await this.veracodeClient.getTeams({
         pageable: { page, size: PAGE_SIZE },
         team_name: teamName,
         ignore_self_teams: true
       })
 
-      // Search for exact match (API may return partial matches)
       const exactMatch = response.teams.find(
         (team) => team.team_name === teamName
       )
@@ -43,12 +40,7 @@ export class TeamService {
         return exactMatch
       }
 
-      // Check if there are more pages
-      if (response.teams.length < PAGE_SIZE) {
-        break
-      }
-
-      page++
+      if (response.teams.length < PAGE_SIZE) break
     }
 
     core.info(`Team not found: ${teamName}`)
@@ -61,7 +53,6 @@ export class TeamService {
   async createTeam(config: TeamConfiguration): Promise<VeracodeTeam> {
     core.info(`Creating new team: ${config.team_name}`)
 
-    // Create the team first
     const team = await this.veracodeClient.createTeam({
       team_name: config.team_name,
       bu_name: config.business_unit,
@@ -71,10 +62,9 @@ export class TeamService {
 
     core.info(`Team created successfully: ${team.team_name} (${team.team_id})`)
 
-    // Add members if any
     if (config.members.length > 0) {
       core.info(`Adding ${config.members.length} members to team...`)
-      await this.addMembersToTeam(team.team_id, config.members)
+      await this.updateTeamMembers(team.team_id, config.members)
       core.info(`Members added successfully`)
     }
 
@@ -90,24 +80,21 @@ export class TeamService {
   ): Promise<VeracodeTeam> {
     core.info(`Updating team: ${config.team_name} (${teamId})`)
 
-    const teamUpdate = {
-      team_name: config.team_name,
-      bu_name: config.business_unit,
-      member_only: config.member_only,
-      description: config.description,
-      users: config.members.map((m) => ({
-        user_name: m.user,
-        relationship: m.relationship
-      }))
-    }
-
-    // Use partial and incremental flags for safe updates
     const updatedTeam = await this.veracodeClient.updateTeam(
       teamId,
-      teamUpdate,
       {
-        partial: true, // Only update provided fields
-        incremental: true // Add users without removing existing
+        team_name: config.team_name,
+        bu_name: config.business_unit,
+        member_only: config.member_only,
+        description: config.description,
+        users: config.members.map((m) => ({
+          user_name: m.user,
+          relationship: m.relationship
+        }))
+      },
+      {
+        partial: true,
+        incremental: true
       }
     )
 
@@ -118,17 +105,16 @@ export class TeamService {
   }
 
   /**
-   * Adds members to an existing team
+   * Updates team members incrementally
    */
-  private async addMembersToTeam(
+  private async updateTeamMembers(
     teamId: string,
     members: TeamMember[]
   ): Promise<void> {
-    // Use the update endpoint with incremental flag
     await this.veracodeClient.updateTeam(
       teamId,
       {
-        team_name: '', // Not updated when partial=true
+        team_name: '',
         users: members.map((m) => ({
           user_name: m.user,
           relationship: m.relationship
@@ -152,9 +138,9 @@ export class TeamService {
     if (existingTeam) {
       const team = await this.updateTeam(existingTeam.team_id, config)
       return { team, action: 'updated' }
-    } else {
-      const team = await this.createTeam(config)
-      return { team, action: 'created' }
     }
+
+    const team = await this.createTeam(config)
+    return { team, action: 'created' }
   }
 }

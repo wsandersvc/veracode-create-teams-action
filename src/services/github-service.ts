@@ -11,6 +11,7 @@ import type { TeamMember } from '../types.js'
 import { normalizeEmail } from '../utils.js'
 
 type GitHubClient = ReturnType<typeof getOctokit>
+type PermissionLevel = 'admin' | 'write' | 'read'
 
 /**
  * Service for interacting with GitHub API
@@ -24,7 +25,7 @@ export class GitHubService {
   async fetchCollaborators(
     owner: string,
     repo: string,
-    filter?: ('admin' | 'write' | 'read')[]
+    filter?: PermissionLevel[]
   ): Promise<TeamMember[]> {
     core.info(`Fetching collaborators for ${owner}/${repo}`)
 
@@ -41,47 +42,61 @@ export class GitHubService {
       const members: TeamMember[] = []
 
       for (const collab of collaborators) {
-        // Determine permission level
-        const permission = this.getPermissionLevel(collab.permissions)
-
-        // Filter by permission if specified
-        if (filter && filter.length > 0 && !filter.includes(permission)) {
-          core.debug(`Skipping ${collab.login} (permission: ${permission})`)
-          continue
+        const member = await this.processCollaborator(collab, filter)
+        if (member) {
+          members.push(member)
+          core.debug(
+            `Added collaborator: ${member.user} (${member.relationship})`
+          )
         }
-
-        // Fetch user email
-        const email = await this.getUserEmail(collab.login)
-        if (!email) {
-          core.warning(`Could not find email for user: ${collab.login}`)
-          continue
-        }
-
-        // Determine relationship based on permissions
-        const relationship = permission === 'admin' ? 'ADMIN' : 'MEMBER'
-
-        members.push({
-          user: email,
-          relationship
-        })
-
-        core.debug(`Added collaborator: ${email} (${relationship})`)
       }
 
       core.info(`Processed ${members.length} collaborators`)
       return members
     } catch (error) {
-      core.error(`Failed to fetch collaborators: ${(error as Error).message}`)
+      const message = `Failed to fetch collaborators: ${(error as Error).message}`
+      core.error(message)
       throw error
+    }
+  }
+
+  /**
+   * Processes a single collaborator
+   */
+  private async processCollaborator(
+    collab: {
+      login: string
+      permissions?: { admin?: boolean; push?: boolean; pull?: boolean }
+    },
+    filter?: PermissionLevel[]
+  ): Promise<TeamMember | null> {
+    const permission = this.getPermissionLevel(collab.permissions)
+
+    if (filter && !filter.includes(permission)) {
+      core.debug(`Skipping ${collab.login} (permission: ${permission})`)
+      return null
+    }
+
+    const email = await this.getUserEmail(collab.login)
+    if (!email) {
+      core.warning(`Could not find email for user: ${collab.login}`)
+      return null
+    }
+
+    return {
+      user: email,
+      relationship: permission === 'admin' ? 'ADMIN' : 'MEMBER'
     }
   }
 
   /**
    * Gets permission level from permissions object
    */
-  private getPermissionLevel(
-    permissions: { admin?: boolean; push?: boolean; pull?: boolean } | undefined
-  ): 'admin' | 'write' | 'read' {
+  private getPermissionLevel(permissions?: {
+    admin?: boolean
+    push?: boolean
+    pull?: boolean
+  }): PermissionLevel {
     if (permissions?.admin) return 'admin'
     if (permissions?.push) return 'write'
     return 'read'
@@ -95,7 +110,6 @@ export class GitHubService {
       const { data: user } = await this.octokit.rest.users.getByUsername({
         username
       })
-
       return user.email
     } catch (error) {
       core.debug(
@@ -116,17 +130,17 @@ export class GitHubService {
     const memberMap = new Map<string, TeamMember>()
 
     // Add configured members first (they take precedence)
-    for (const member of configMembers) {
+    configMembers.forEach((member) => {
       memberMap.set(normalizeEmail(member.user), member)
-    }
+    })
 
     // Add GitHub members if not already present
-    for (const member of githubMembers) {
+    githubMembers.forEach((member) => {
       const normalizedEmail = normalizeEmail(member.user)
       if (!memberMap.has(normalizedEmail)) {
         memberMap.set(normalizedEmail, member)
       }
-    }
+    })
 
     return Array.from(memberMap.values())
   }
