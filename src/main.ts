@@ -5,21 +5,18 @@
 import * as core from '@actions/core'
 import { getOctokit } from '@actions/github'
 import yaml, { CORE_SCHEMA } from 'js-yaml'
-import type { ActionInputs, ActionOutputs, TeamConfiguration } from './types.js'
-import { VeracodeClient } from './veracode/client.js'
-import { UserValidator } from './services/user-validator.js'
-import { TeamService } from './services/team-service.js'
-import { GitHubService } from './services/github-service.js'
 import { ConfigurationResolver } from './config/resolver.js'
 import { validateMapping } from './config/validator.js'
+import { ErrorCategory, VeracodeActionError } from './errors.js'
+import { GitHubService } from './services/github-service.js'
+import { TeamService } from './services/team-service.js'
+import { UserValidator } from './services/user-validator.js'
+import type { ActionInputs, ActionOutputs, TeamConfiguration } from './types.js'
 import { executeWithRetry } from './utils/retry.js'
-import { VeracodeActionError, ErrorCategory } from './errors.js'
+import { VeracodeClient } from './veracode/client.js'
 
 type Octokit = ReturnType<typeof getOctokit>
 
-/**
- * Fetches a file from a GitHub repository using the GitHub API.
- */
 async function fetchFileFromRepo(
   options: {
     owner: string
@@ -66,9 +63,6 @@ async function fetchFileFromRepo(
   }
 }
 
-/**
- * Validates and retrieves action inputs
- */
 function getInputs(): ActionInputs {
   return {
     githubToken: core.getInput('github-token', { required: true }),
@@ -77,7 +71,7 @@ function getInputs(): ActionInputs {
     repository: core.getInput('repository', { required: true }),
     owner: core.getInput('owner', { required: true }),
     configRepository:
-      core.getInput('config-repository', { required: false }) || '.veracode',
+      core.getInput('config-repository', { required: false }) || 'veracode',
     configRef: core.getInput('config-ref', { required: false }) || undefined,
     mappingPath:
       core.getInput('veracode-team-mapping-yaml', { required: false }) ||
@@ -90,9 +84,6 @@ function getInputs(): ActionInputs {
   }
 }
 
-/**
- * Sets action outputs
- */
 function setOutputs(outputs: ActionOutputs): void {
   core.setOutput('team-id', outputs.teamId)
   core.setOutput('team-name', outputs.teamName)
@@ -103,19 +94,16 @@ function setOutputs(outputs: ActionOutputs): void {
   core.setOutput('members-skipped', outputs.membersSkipped)
   core.setOutput('skipped-users', outputs.skippedUsers.join(','))
 
-  core.info('✓ Outputs set successfully')
-  core.info(`  Team ID: ${outputs.teamId}`)
-  core.info(`  Team Name: ${outputs.teamName}`)
-  core.info(`  Action: ${outputs.actionTaken}`)
-  core.info(`  Members Added: ${outputs.membersAdded}`)
-  core.info(`  Members Skipped: ${outputs.membersSkipped}`)
+  core.info('Outputs set successfully')
+  core.info(`Team ID: ${outputs.teamId}`)
+  core.info(`Team Name: ${outputs.teamName}`)
+  core.info(`Action: ${outputs.actionTaken}`)
+  core.info(`Members Added: ${outputs.membersAdded}`)
+  core.info(`Members Skipped: ${outputs.membersSkipped}`)
 }
 
-/**
- * Writes job summary to GitHub Actions
- */
 async function writeSummary(outputs: ActionOutputs): Promise<void> {
-  core.summary.addHeading('✅ Veracode Team Sync Complete').addTable([
+  core.summary.addHeading('Veracode Team Sync Complete').addTable([
     [
       { data: 'Property', header: true },
       { data: 'Value', header: true }
@@ -128,19 +116,14 @@ async function writeSummary(outputs: ActionOutputs): Promise<void> {
   ])
 
   if (outputs.skippedUsers.length > 0) {
-    core.summary.addHeading('⚠️ Skipped Users', 3).addList(outputs.skippedUsers)
+    core.summary.addHeading('Skipped Users', 3).addList(outputs.skippedUsers)
   }
 
   await core.summary.write()
 }
 
-/**
- * Writes error summary to GitHub Actions
- */
 async function writeErrorSummary(error: Error): Promise<void> {
-  core.summary
-    .addHeading('❌ Action Failed')
-    .addCodeBlock(error.message, 'text')
+  core.summary.addHeading('Action Failed').addCodeBlock(error.message, 'text')
 
   if (error.stack) {
     core.summary.addDetails('Stack Trace', error.stack)
@@ -149,23 +132,18 @@ async function writeErrorSummary(error: Error): Promise<void> {
   await core.summary.write()
 }
 
-/**
- * The main function for the action.
- */
 export async function run(): Promise<void> {
   try {
-    // 1. Get and validate inputs
-    core.startGroup('📋 Validating inputs')
+    core.startGroup('Validating inputs')
     const inputs = getInputs()
     core.info(`Repository: ${inputs.owner}/${inputs.repository}`)
     core.info(
-      `Config: ${inputs.owner}/${inputs.configRepository}/${inputs.mappingPath}`
+      `Config: ${inputs.owner}/${inputs.configRepository}/${inputs.mappingPath}${inputs.configRef ? ` (ref: ${inputs.configRef})` : ''}`
     )
     core.info(`Region: ${inputs.veracodeRegion}`)
     core.endGroup()
 
-    // 2. Initialize clients
-    core.startGroup('🔧 Initializing clients')
+    core.startGroup('Initializing clients')
     const octokit = getOctokit(inputs.githubToken)
     const veracodeClient = new VeracodeClient(
       inputs.veracodeApiId,
@@ -175,11 +153,10 @@ export async function run(): Promise<void> {
     const userValidator = new UserValidator(veracodeClient)
     const teamService = new TeamService(veracodeClient)
     const githubService = new GitHubService(octokit)
-    core.info('✓ Clients initialized successfully')
+    core.info('Clients initialized successfully')
     core.endGroup()
 
-    // 3. Load and parse mapping configuration
-    core.startGroup('📄 Loading team mapping configuration')
+    core.startGroup('Loading team mapping configuration')
     const fileContent = await fetchFileFromRepo(
       {
         owner: inputs.owner,
@@ -191,11 +168,10 @@ export async function run(): Promise<void> {
     )
     const rawMapping = yaml.load(fileContent, { schema: CORE_SCHEMA })
     const mapping = validateMapping(rawMapping)
-    core.info('✓ Configuration loaded and validated')
+    core.info('Configuration loaded and validated')
     core.endGroup()
 
-    // 4. Resolve team configuration for this repository
-    core.startGroup('🎯 Resolving team configuration')
+    core.startGroup('Resolving team configuration')
     const resolver = new ConfigurationResolver(mapping)
     let teamConfig: TeamConfiguration = resolver.resolveTeamConfiguration(
       inputs.repository
@@ -204,9 +180,8 @@ export async function run(): Promise<void> {
     core.info(`Base members: ${teamConfig.members.length}`)
     core.endGroup()
 
-    // 5. Fetch and merge GitHub collaborators if configured
     if (teamConfig.sync_github_collaborators) {
-      core.startGroup('👥 Fetching GitHub collaborators')
+      core.startGroup('Fetching GitHub collaborators')
       const githubMembers = await githubService.fetchCollaborators(
         inputs.owner,
         inputs.repository,
@@ -223,8 +198,7 @@ export async function run(): Promise<void> {
       core.endGroup()
     }
 
-    // 6. Validate all users against Veracode platform (CRITICAL)
-    core.startGroup('✅ Validating users against Veracode platform')
+    core.startGroup('Validating users against Veracode platform')
     const validationResult = await userValidator.validateTeamMembers(
       teamConfig.members
     )
@@ -242,40 +216,38 @@ export async function run(): Promise<void> {
     }
     core.endGroup()
 
-    // 7. Check if team exists
-    core.startGroup('🔍 Checking if team exists')
+    core.startGroup('Checking if team exists')
     const existingTeam = await executeWithRetry(
       () => teamService.findTeamByName(teamConfig.team_name),
       'Find team by name'
     )
     core.endGroup()
 
-    // 8. Create or update team
     let team
     let actionTaken: 'created' | 'updated'
 
     if (!existingTeam) {
-      core.startGroup('➕ Creating new team')
+      core.startGroup('Creating new team')
       team = await executeWithRetry(
         () => teamService.createTeam(teamConfig),
         'Create team'
       )
       actionTaken = 'created'
-      core.info(`✓ Team created: ${team.team_name} (${team.team_id})`)
+      core.info(`Team created: ${team.team_name} (${team.team_id})`)
       core.endGroup()
     } else {
-      core.startGroup('🔄 Updating existing team')
+      core.startGroup('Updating existing team')
       team = await executeWithRetry(
         () => teamService.updateTeam(existingTeam.team_id, teamConfig),
         'Update team'
       )
       actionTaken = 'updated'
-      core.info(`✓ Team updated: ${team.team_name} (${team.team_id})`)
+      core.info(`Team updated: ${team.team_name} (${team.team_id})`)
       core.endGroup()
     }
 
     // 9. Set outputs and write summary
-    core.startGroup('📤 Setting outputs')
+    core.startGroup('Setting outputs')
     const outputs: ActionOutputs = {
       teamId: team.team_id,
       teamName: team.team_name,
