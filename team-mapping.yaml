@@ -1,0 +1,43 @@
+# Veracode Team Mapping Configuration
+# Version 1.0 - Schema for mapping GitHub repositories to Veracode teams
+
+version: "1.0"
+
+# Optional: Default settings applied to all teams unless overridden
+defaults:
+  business_unit: "Application Security"
+  member_only: false
+  auto_add_collaborators: false
+  incremental_updates: true
+
+# Repository-to-team mappings
+# Key: GitHub repository name (supports wildcards with *)
+mappings:
+  # Example: Specific repository configuration
+  verademo-java:
+    team_name: "VeraDemo Java Security Team"
+    description: "Security team for the VeraDemo Java application"
+    business_unit: "Demo Applications"
+    member_only: false
+    
+    # Team members with their roles
+    members:
+      - user: "verainternal_wsanders"
+        relationship: "ADMIN"
+    
+    # Optional: Automatically sync GitHub collaborators
+    sync_github_collaborators: false
+    
+    # Optional: Filter which GitHub collaborators to include
+    # Options: 'admin', 'write', 'read'
+    github_collaborator_filter:
+      - "admin"
+      - "write"
+
+# Optional: Fallback configuration for repositories without explicit mappings
+fallback:
+  auto_create: true
+  team_name_template: "{repository_name} Security Team"
+  default_members:
+    - user: "verainternal_wsanders"
+      relationship: "ADMIN"
