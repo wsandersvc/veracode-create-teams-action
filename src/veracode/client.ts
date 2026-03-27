@@ -4,6 +4,7 @@
 
 import axios, { AxiosInstance, AxiosError } from 'axios'
 import * as core from '@actions/core'
+import qs from 'qs'
 import { generateAuthHeader, getBaseUrl } from './auth.js'
 import {
   VeracodeTeam,
@@ -90,6 +91,15 @@ export class VeracodeClient {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json'
+      },
+      // Use qs library for RFC3986-compliant query string serialization
+      // This ensures spaces are encoded as %20 (not +) which is required for Veracode HMAC
+      paramsSerializer: (params) => {
+        return qs.stringify(params, {
+          encode: true,
+          format: 'RFC3986',
+          skipNulls: true // Automatically skip null/undefined values
+        })
       }
     })
 
@@ -103,19 +113,16 @@ export class VeracodeClient {
 
       // Build full URL path for HMAC signature (must include /api/authn prefix)
       let urlPath = baseUrlPath + (config.url || '')
+
+      // Build query string using the same serializer for consistent encoding
       if (config.params) {
-        // Build query string with proper percent-encoding (not plus-encoding)
-        // Veracode API requires %20 for spaces, not +
-        const queryParts: string[] = []
-        Object.entries(config.params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            queryParts.push(
-              `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
-            )
-          }
+        const queryString = qs.stringify(config.params, {
+          encode: true,
+          format: 'RFC3986',
+          skipNulls: true
         })
-        if (queryParts.length > 0) {
-          urlPath += `?${queryParts.join('&')}`
+        if (queryString) {
+          urlPath += `?${queryString}`
         }
       }
 
@@ -128,15 +135,6 @@ export class VeracodeClient {
       )
       config.headers.Authorization = authHeader
       core.debug(`Request: ${config.method?.toUpperCase()} ${urlPath}`)
-
-      // Update config.url to include query string and clear params
-      // to prevent axios from adding params with potentially different encoding
-      if (config.params) {
-        config.url =
-          (config.url || '') +
-          (urlPath.includes('?') ? urlPath.substring(urlPath.indexOf('?')) : '')
-        config.params = undefined
-      }
 
       return config
     })
