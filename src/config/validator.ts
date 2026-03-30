@@ -32,10 +32,13 @@ export const TeamConfigurationSchema = z.object({
 })
 
 // Zod schema for default settings
-export const DefaultSettingsSchema = z.object({
-  business_unit: z.string().optional(),
-  member_only: z.boolean().optional()
-})
+export const DefaultSettingsSchema = z
+  .object({
+    business_unit: z.string().optional(),
+    member_only: z.boolean().optional()
+  })
+  .nullable()
+  .transform((val) => val ?? undefined)
 
 // Zod schema for fallback configuration
 export const FallbackConfigurationSchema = z.object({

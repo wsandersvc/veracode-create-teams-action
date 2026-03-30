@@ -68958,7 +68958,9 @@ const TeamConfigurationSchema = objectType({
 const DefaultSettingsSchema = objectType({
     business_unit: stringType().optional(),
     member_only: booleanType().optional()
-});
+})
+    .nullable()
+    .transform((val) => val ?? undefined);
 // Zod schema for fallback configuration
 const FallbackConfigurationSchema = objectType({
     auto_create: booleanType(),

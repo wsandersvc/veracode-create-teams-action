@@ -65,6 +65,25 @@ describe('config/validator.ts', () => {
       expect(result.fallback?.auto_create).toBe(true)
     })
 
+    it('should handle null defaults (from YAML with only comments)', () => {
+      const config = {
+        version: '1.0',
+        defaults: null, // YAML parsing of empty defaults with only comments
+        mappings: {
+          'my-repo': {
+            team_name: 'My Team',
+            members: []
+          }
+        }
+      }
+
+      const result = validateMapping(config)
+
+      expect(result.defaults).toBeUndefined()
+      expect(result.version).toBe('1.0')
+      expect(result.mappings['my-repo'].team_name).toBe('My Team')
+    })
+
     it('should validate multiple repository mappings', () => {
       const config = {
         version: '1.0',
