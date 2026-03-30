@@ -17,6 +17,12 @@ import { VeracodeClient } from './veracode/client.js'
 
 type Octokit = ReturnType<typeof getOctokit>
 
+/**
+ * Fetches a file from a GitHub repository
+ * @param options - Configuration for fetching the file
+ * @returns File content as a string
+ * @throws Error if file cannot be fetched
+ */
 async function fetchFileFromRepo(
   options: {
     owner: string
@@ -63,6 +69,10 @@ async function fetchFileFromRepo(
   }
 }
 
+/**
+ * Retrieves and validates all action inputs from GitHub Actions context
+ * @returns Object containing all required and optional action inputs
+ */
 function getInputs(): ActionInputs {
   return {
     githubToken: core.getInput('github-token', { required: true }),
@@ -84,6 +94,10 @@ function getInputs(): ActionInputs {
   }
 }
 
+/**
+ * Sets all action outputs in GitHub Actions context
+ * @param outputs - Object containing all output values to set
+ */
 function setOutputs(outputs: ActionOutputs): void {
   core.setOutput('team-id', outputs.teamId)
   core.setOutput('team-name', outputs.teamName)
@@ -102,6 +116,10 @@ function setOutputs(outputs: ActionOutputs): void {
   core.info(`Members Skipped: ${outputs.membersSkipped}`)
 }
 
+/**
+ * Writes a summary of the action results to GitHub Actions step summary
+ * @param outputs - Action outputs to include in the summary
+ */
 async function writeSummary(outputs: ActionOutputs): Promise<void> {
   core.summary.addHeading('Veracode Team Sync Complete').addTable([
     [
@@ -122,6 +140,10 @@ async function writeSummary(outputs: ActionOutputs): Promise<void> {
   await core.summary.write()
 }
 
+/**
+ * Writes an error summary to GitHub Actions step summary
+ * @param error - The error that occurred
+ */
 async function writeErrorSummary(error: Error): Promise<void> {
   core.summary.addHeading('Action Failed').addCodeBlock(error.message, 'text')
 
@@ -132,6 +154,16 @@ async function writeErrorSummary(error: Error): Promise<void> {
   await core.summary.write()
 }
 
+/**
+ * Main entry point for the GitHub Action
+ * Orchestrates team creation/update workflow including:
+ * - Fetching and validating configuration
+ * - Validating team members
+ * - Creating or updating Veracode teams
+ * - Syncing GitHub collaborators (if enabled)
+ * - Setting outputs and writing summary
+ * @throws Error if action fails (errors are caught and logged)
+ */
 export async function run(): Promise<void> {
   try {
     core.startGroup('Validating inputs')

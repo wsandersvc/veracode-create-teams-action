@@ -103,6 +103,9 @@ export class ConfigurationResolver {
 
   /**
    * Builds complete team configuration by merging with defaults
+   * @param config - Team-specific configuration
+   * @param defaults - Default settings to apply
+   * @returns Complete team configuration with defaults applied
    */
   private buildTeamConfig(
     config: TeamConfiguration,
@@ -118,7 +121,10 @@ export class ConfigurationResolver {
 
   /**
    * Checks if repository matches a wildcard pattern
-   * Supports simple * wildcards
+   * Supports simple * wildcards for flexible repository matching
+   * @param repository - Repository name to test
+   * @param pattern - Pattern with * wildcards
+   * @returns True if repository matches pattern
    */
   private matchesWildcardPattern(repository: string, pattern: string): boolean {
     if (!pattern.includes('*')) {

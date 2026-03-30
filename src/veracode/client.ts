@@ -39,9 +39,9 @@ interface GetUsersParams {
 }
 
 /**
- * Parameters for creating a team
+ * Base parameters shared by create and update team operations
  */
-interface CreateTeamParams {
+interface BaseTeamParams {
   team_name: string
   bu_name?: string
   member_only?: boolean
@@ -49,13 +49,15 @@ interface CreateTeamParams {
 }
 
 /**
- * Parameters for updating a team
+ * Parameters for creating a team
  */
-interface UpdateTeamParams {
-  team_name: string
-  bu_name?: string
-  member_only?: boolean
-  description?: string
+type CreateTeamParams = BaseTeamParams
+
+/**
+ * Parameters for updating a team
+ * Extends base team parameters with user management
+ */
+interface UpdateTeamParams extends BaseTeamParams {
   users?: Array<{ user_name: string; relationship: string }>
 }
 
@@ -76,6 +78,12 @@ export class VeracodeClient {
   private apiKey: string
   private baseUrl: string
 
+  /**
+   * Creates a new Veracode API client
+   * @param apiId - Veracode API ID for authentication
+   * @param apiKey - Veracode API Key for authentication (hex string)
+   * @param region - Veracode region (US, EU, or FEDERAL), defaults to US
+   */
   constructor(
     apiId: string,
     apiKey: string,
@@ -152,7 +160,8 @@ export class VeracodeClient {
   }
 
   /**
-   * Handle API errors with proper categorization
+   * Handles API errors by categorizing and logging them
+   * @param error - Axios error from API call
    */
   private handleApiError(error: AxiosError): void {
     const category = categorizeError(error)

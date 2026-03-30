@@ -64961,6 +64961,11 @@ var jsYaml = {
 function normalizeEmail(email) {
     return email.trim().toLowerCase();
 }
+/**
+ * Delays execution for a specified number of milliseconds
+ * @param ms - Number of milliseconds to sleep
+ * @returns Promise that resolves after the specified delay
+ */
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -65055,6 +65060,9 @@ class ConfigurationResolver {
     }
     /**
      * Builds complete team configuration by merging with defaults
+     * @param config - Team-specific configuration
+     * @param defaults - Default settings to apply
+     * @returns Complete team configuration with defaults applied
      */
     buildTeamConfig(config, defaults) {
         return {
@@ -65066,7 +65074,10 @@ class ConfigurationResolver {
     }
     /**
      * Checks if repository matches a wildcard pattern
-     * Supports simple * wildcards
+     * Supports simple * wildcards for flexible repository matching
+     * @param repository - Repository name to test
+     * @param pattern - Pattern with * wildcards
+     * @returns True if repository matches pattern
      */
     matchesWildcardPattern(repository, pattern) {
         if (!pattern.includes('*')) {
@@ -68921,6 +68932,7 @@ ZodNullable.create;
  * Configuration Validator
  *
  * Uses Zod for schema validation of team mapping YAML configuration.
+ * This module is the single source of truth for configuration types.
  */
 // Zod schema for team member
 const TeamMemberSchema = objectType({
@@ -69097,6 +69109,13 @@ class GitHubService {
     constructor(octokit) {
         this.octokit = octokit;
     }
+    /**
+     * Fetches collaborators from a GitHub repository with optional permission filtering
+     * @param owner - Repository owner
+     * @param repo - Repository name
+     * @param filter - Optional array of permission levels to filter by ('admin', 'write', 'read')
+     * @returns Array of team members with their emails and roles
+     */
     async fetchCollaborators(owner, repo, filter) {
         info(`Fetching collaborators for ${owner}/${repo}`);
         try {
@@ -69123,6 +69142,13 @@ class GitHubService {
             throw error$1;
         }
     }
+    /**
+     * Processes a single collaborator, fetching their email and determining their role
+     * @param collab - Collaborator object from GitHub API
+     * @param owner - Repository owner
+     * @param repo - Repository name
+     * @returns Team member object or null if email cannot be retrieved
+     */
     async processCollaborator(collab, filter) {
         const permission = this.getPermissionLevel(collab.permissions);
         if (filter && !filter.includes(permission)) {
@@ -69139,6 +69165,11 @@ class GitHubService {
             relationship: permission === 'admin' ? 'ADMIN' : 'MEMBER'
         };
     }
+    /**
+     * Determines the permission level from GitHub permissions object
+     * @param permissions - GitHub permissions object
+     * @returns Permission level string ('admin', 'write', or 'read')
+     */
     getPermissionLevel(permissions) {
         if (permissions?.admin)
             return 'admin';
@@ -69146,6 +69177,11 @@ class GitHubService {
             return 'write';
         return 'read';
     }
+    /**
+     * Fetches the email address for a GitHub user
+     * @param username - GitHub username
+     * @returns Email address or null if not found/public
+     */
     async getUserEmail(username) {
         try {
             const { data: user } = await this.octokit.rest.users.getByUsername({
@@ -69191,6 +69227,11 @@ class TeamService {
     constructor(veracodeClient) {
         this.veracodeClient = veracodeClient;
     }
+    /**
+     * Finds a team by exact name match
+     * @param teamName - The exact name of the team to find
+     * @returns The team if found, null otherwise
+     */
     async findTeamByName(teamName) {
         info(`Searching for team: ${teamName}`);
         for (let page = 0; page < MAX_PAGES; page++) {
@@ -69210,6 +69251,11 @@ class TeamService {
         info(`Team not found: ${teamName}`);
         return null;
     }
+    /**
+     * Creates a new team in Veracode with the specified configuration
+     * @param config - Team configuration including name, members, and settings
+     * @returns The newly created team
+     */
     async createTeam(config) {
         info(`Creating new team: ${config.team_name}`);
         const team = await this.veracodeClient.createTeam({
@@ -69226,6 +69272,13 @@ class TeamService {
         }
         return team;
     }
+    /**
+     * Updates an existing team with new configuration
+     * Uses incremental updates to preserve existing members
+     * @param teamId - The ID of the team to update
+     * @param config - New team configuration
+     * @returns The updated team
+     */
     async updateTeam(teamId, config) {
         info(`Updating team: ${config.team_name} (${teamId})`);
         const updatedTeam = await this.veracodeClient.updateTeam(teamId, {
@@ -69244,6 +69297,12 @@ class TeamService {
         info(`Team updated successfully: ${config.members.length} members processed`);
         return updatedTeam;
     }
+    /**
+     * Updates team members incrementally (adds without removing existing)
+     * @param teamId - The ID of the team
+     * @param teamName - The name of the team (for logging)
+     * @param members - Array of members to add to the team
+     */
     async updateTeamMembers(teamId, teamName, members) {
         await this.veracodeClient.updateTeam(teamId, {
             team_name: teamName,
@@ -69256,6 +69315,11 @@ class TeamService {
             incremental: true
         });
     }
+    /**
+     * Creates a new team or updates an existing one based on team name
+     * @param config - Team configuration
+     * @returns Object containing the team and the action taken ('created' or 'updated')
+     */
     async createOrUpdateTeam(config) {
         const existingTeam = await this.findTeamByName(config.team_name);
         if (existingTeam) {
@@ -69279,6 +69343,12 @@ class UserValidator {
     constructor(veracodeClient) {
         this.veracodeClient = veracodeClient;
     }
+    /**
+     * Validates all team members against the Veracode platform
+     * Checks if users exist, are active, and have appropriate permissions
+     * @param members - Array of team members to validate
+     * @returns Object containing valid and invalid members with reasons
+     */
     async validateTeamMembers(members) {
         info(`Validating ${members.length} team members against Veracode platform...`);
         const validMembers = [];
@@ -69300,6 +69370,13 @@ class UserValidator {
         this.logValidationSummary(validMembers.length, invalidMembers);
         return { validMembers, invalidMembers };
     }
+    /**
+     * Determines the appropriate relationship (role) for a user
+     * Downgrades ADMIN to MEMBER if user doesn't have Team Admin role in Veracode
+     * @param requestedRelationship - The relationship requested in configuration
+     * @param user - The Veracode user object
+     * @returns The appropriate relationship for this user
+     */
     determineRelationship(requestedRelationship, user) {
         if (requestedRelationship === 'ADMIN' && !this.hasTeamAdminRole(user)) {
             warning(`User ${user.user_name} does not have the 'Team Admin' role. ` +
@@ -69308,6 +69385,11 @@ class UserValidator {
         }
         return requestedRelationship;
     }
+    /**
+     * Logs a summary of validation results
+     * @param validCount - Number of valid members
+     * @param invalidMembers - Array of invalid members with reasons
+     */
     logValidationSummary(validCount, invalidMembers) {
         info('Validation complete:');
         info(`  Valid members: ${validCount}`);
@@ -69319,6 +69401,12 @@ class UserValidator {
             });
         }
     }
+    /**
+     * Validates a single user against the Veracode platform
+     * Uses caching to avoid redundant API calls
+     * @param emailOrUsername - User's email address or username
+     * @returns Validation result with status and user object if valid
+     */
     async validateUser(emailOrUsername) {
         const normalizedKey = normalizeEmail(emailOrUsername);
         // Check cache first
@@ -69367,12 +69455,25 @@ class UserValidator {
             };
         }
     }
+    /**
+     * Checks if a user has the Team Admin role in Veracode
+     * @param user - The Veracode user object
+     * @returns True if user has Team Admin role, false otherwise
+     */
     hasTeamAdminRole(user) {
         return (user.roles?.some((role) => role.role_name?.toLowerCase() === 'teamadmin') ?? false);
     }
+    /**
+     * Clears the user validation cache
+     * Useful for testing or when fresh validation is required
+     */
     clearCache() {
         this.userCache.clear();
     }
+    /**
+     * Gets the current size of the user cache
+     * @returns Number of cached user validations
+     */
     getCacheSize() {
         return this.userCache.size;
     }
@@ -92414,6 +92515,12 @@ class VeracodeClient {
     apiId;
     apiKey;
     baseUrl;
+    /**
+     * Creates a new Veracode API client
+     * @param apiId - Veracode API ID for authentication
+     * @param apiKey - Veracode API Key for authentication (hex string)
+     * @param region - Veracode region (US, EU, or FEDERAL), defaults to US
+     */
     constructor(apiId, apiKey, region = 'US') {
         this.apiId = apiId;
         this.apiKey = apiKey;
@@ -92469,7 +92576,8 @@ class VeracodeClient {
         });
     }
     /**
-     * Handle API errors with proper categorization
+     * Handles API errors by categorizing and logging them
+     * @param error - Axios error from API call
      */
     handleApiError(error$1) {
         const category = categorizeError(error$1);
@@ -92575,6 +92683,12 @@ class VeracodeClient {
 /**
  * Main entry point for the Veracode Create Teams Action
  */
+/**
+ * Fetches a file from a GitHub repository
+ * @param options - Configuration for fetching the file
+ * @returns File content as a string
+ * @throws Error if file cannot be fetched
+ */
 async function fetchFileFromRepo(options, octokit) {
     const { owner, path, ref, repository } = options;
     try {
@@ -92596,6 +92710,10 @@ async function fetchFileFromRepo(options, octokit) {
         throw new VeracodeActionError(`Failed to fetch file from ${owner}/${repository}/${path}`, ErrorCategory.CONFIGURATION, false, undefined, error);
     }
 }
+/**
+ * Retrieves and validates all action inputs from GitHub Actions context
+ * @returns Object containing all required and optional action inputs
+ */
 function getInputs() {
     return {
         githubToken: getInput('github-token', { required: true }),
@@ -92610,6 +92728,10 @@ function getInputs() {
         veracodeRegion: getInput('veracode-region', { required: false }) || 'US'
     };
 }
+/**
+ * Sets all action outputs in GitHub Actions context
+ * @param outputs - Object containing all output values to set
+ */
 function setOutputs(outputs) {
     setOutput('team-id', outputs.teamId);
     setOutput('team-name', outputs.teamName);
@@ -92626,6 +92748,10 @@ function setOutputs(outputs) {
     info(`Members Added: ${outputs.membersAdded}`);
     info(`Members Skipped: ${outputs.membersSkipped}`);
 }
+/**
+ * Writes a summary of the action results to GitHub Actions step summary
+ * @param outputs - Action outputs to include in the summary
+ */
 async function writeSummary(outputs) {
     summary.addHeading('Veracode Team Sync Complete').addTable([
         [
@@ -92643,6 +92769,10 @@ async function writeSummary(outputs) {
     }
     await summary.write();
 }
+/**
+ * Writes an error summary to GitHub Actions step summary
+ * @param error - The error that occurred
+ */
 async function writeErrorSummary(error) {
     summary.addHeading('Action Failed').addCodeBlock(error.message, 'text');
     if (error.stack) {
@@ -92650,6 +92780,16 @@ async function writeErrorSummary(error) {
     }
     await summary.write();
 }
+/**
+ * Main entry point for the GitHub Action
+ * Orchestrates team creation/update workflow including:
+ * - Fetching and validating configuration
+ * - Validating team members
+ * - Creating or updating Veracode teams
+ * - Syncing GitHub collaborators (if enabled)
+ * - Setting outputs and writing summary
+ * @throws Error if action fails (errors are caught and logged)
+ */
 async function run() {
     try {
         startGroup('Validating inputs');

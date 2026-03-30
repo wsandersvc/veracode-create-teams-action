@@ -2,38 +2,18 @@
  * Type definitions for Veracode Create Teams Action
  */
 
-export interface TeamConfiguration {
-  team_name: string
-  description?: string
-  business_unit?: string
-  member_only?: boolean
-  members: TeamMember[]
-  sync_github_collaborators?: boolean
-  github_collaborator_filter?: ('admin' | 'write' | 'read')[]
-}
+// Re-export configuration types generated from Zod schemas
+// These are the single source of truth defined in config/validator.ts
+export type {
+  TeamConfiguration,
+  TeamMember,
+  TeamMapping,
+  DefaultSettings,
+  FallbackConfiguration
+} from './config/validator.js'
 
-export interface TeamMember {
-  user: string // Email or username
-  relationship: 'ADMIN' | 'MEMBER'
-}
-
-export interface TeamMapping {
-  version: string
-  defaults?: DefaultSettings
-  mappings: Record<string, TeamConfiguration>
-  fallback?: FallbackConfiguration
-}
-
-export interface DefaultSettings {
-  business_unit?: string
-  member_only?: boolean
-}
-
-export interface FallbackConfiguration {
-  auto_create: boolean
-  team_name_template?: string
-  default_members?: TeamMember[]
-}
+// Import for use in types below
+import type { TeamMember } from './config/validator.js'
 
 /**
  * Veracode API team response

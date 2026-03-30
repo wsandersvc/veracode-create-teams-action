@@ -20,6 +20,12 @@ export class UserValidator {
 
   constructor(private veracodeClient: VeracodeClient) {}
 
+  /**
+   * Validates all team members against the Veracode platform
+   * Checks if users exist, are active, and have appropriate permissions
+   * @param members - Array of team members to validate
+   * @returns Object containing valid and invalid members with reasons
+   */
   async validateTeamMembers(
     members: TeamMember[]
   ): Promise<UserValidationResult> {
@@ -52,6 +58,13 @@ export class UserValidator {
     return { validMembers, invalidMembers }
   }
 
+  /**
+   * Determines the appropriate relationship (role) for a user
+   * Downgrades ADMIN to MEMBER if user doesn't have Team Admin role in Veracode
+   * @param requestedRelationship - The relationship requested in configuration
+   * @param user - The Veracode user object
+   * @returns The appropriate relationship for this user
+   */
   private determineRelationship(
     requestedRelationship: 'ADMIN' | 'MEMBER',
     user: VeracodeUser
@@ -66,6 +79,11 @@ export class UserValidator {
     return requestedRelationship
   }
 
+  /**
+   * Logs a summary of validation results
+   * @param validCount - Number of valid members
+   * @param invalidMembers - Array of invalid members with reasons
+   */
   private logValidationSummary(
     validCount: number,
     invalidMembers: InvalidMember[]
@@ -82,6 +100,12 @@ export class UserValidator {
     }
   }
 
+  /**
+   * Validates a single user against the Veracode platform
+   * Uses caching to avoid redundant API calls
+   * @param emailOrUsername - User's email address or username
+   * @returns Validation result with status and user object if valid
+   */
   private async validateUser(emailOrUsername: string): Promise<{
     valid: boolean
     reason: string
@@ -145,6 +169,11 @@ export class UserValidator {
     }
   }
 
+  /**
+   * Checks if a user has the Team Admin role in Veracode
+   * @param user - The Veracode user object
+   * @returns True if user has Team Admin role, false otherwise
+   */
   private hasTeamAdminRole(user: VeracodeUser): boolean {
     return (
       user.roles?.some(
@@ -153,10 +182,18 @@ export class UserValidator {
     )
   }
 
+  /**
+   * Clears the user validation cache
+   * Useful for testing or when fresh validation is required
+   */
   clearCache(): void {
     this.userCache.clear()
   }
 
+  /**
+   * Gets the current size of the user cache
+   * @returns Number of cached user validations
+   */
   getCacheSize(): number {
     return this.userCache.size
   }

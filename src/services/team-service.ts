@@ -14,6 +14,11 @@ const PAGE_SIZE = 100 // Maximum page size for efficiency
 export class TeamService {
   constructor(private veracodeClient: VeracodeClient) {}
 
+  /**
+   * Finds a team by exact name match
+   * @param teamName - The exact name of the team to find
+   * @returns The team if found, null otherwise
+   */
   async findTeamByName(teamName: string): Promise<VeracodeTeam | null> {
     core.info(`Searching for team: ${teamName}`)
 
@@ -40,6 +45,11 @@ export class TeamService {
     return null
   }
 
+  /**
+   * Creates a new team in Veracode with the specified configuration
+   * @param config - Team configuration including name, members, and settings
+   * @returns The newly created team
+   */
   async createTeam(config: TeamConfiguration): Promise<VeracodeTeam> {
     core.info(`Creating new team: ${config.team_name}`)
 
@@ -61,6 +71,13 @@ export class TeamService {
     return team
   }
 
+  /**
+   * Updates an existing team with new configuration
+   * Uses incremental updates to preserve existing members
+   * @param teamId - The ID of the team to update
+   * @param config - New team configuration
+   * @returns The updated team
+   */
   async updateTeam(
     teamId: string,
     config: TeamConfiguration
@@ -91,6 +108,12 @@ export class TeamService {
     return updatedTeam
   }
 
+  /**
+   * Updates team members incrementally (adds without removing existing)
+   * @param teamId - The ID of the team
+   * @param teamName - The name of the team (for logging)
+   * @param members - Array of members to add to the team
+   */
   private async updateTeamMembers(
     teamId: string,
     teamName: string,
@@ -112,6 +135,11 @@ export class TeamService {
     )
   }
 
+  /**
+   * Creates a new team or updates an existing one based on team name
+   * @param config - Team configuration
+   * @returns Object containing the team and the action taken ('created' or 'updated')
+   */
   async createOrUpdateTeam(
     config: TeamConfiguration
   ): Promise<{ team: VeracodeTeam; action: 'created' | 'updated' }> {

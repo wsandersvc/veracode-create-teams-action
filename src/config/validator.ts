@@ -2,13 +2,13 @@
  * Configuration Validator
  *
  * Uses Zod for schema validation of team mapping YAML configuration.
+ * This module is the single source of truth for configuration types.
  */
 
 import { z } from 'zod'
-import type { TeamMapping } from '../types.js'
 
 // Zod schema for team member
-const TeamMemberSchema = z.object({
+export const TeamMemberSchema = z.object({
   user: z.string().min(1, 'User email/username is required'),
   relationship: z.enum(['ADMIN', 'MEMBER'], {
     errorMap: () => ({ message: 'Relationship must be either ADMIN or MEMBER' })
@@ -16,7 +16,7 @@ const TeamMemberSchema = z.object({
 })
 
 // Zod schema for team configuration
-const TeamConfigurationSchema = z.object({
+export const TeamConfigurationSchema = z.object({
   team_name: z
     .string()
     .min(1, 'Team name is required')
@@ -32,25 +32,32 @@ const TeamConfigurationSchema = z.object({
 })
 
 // Zod schema for default settings
-const DefaultSettingsSchema = z.object({
+export const DefaultSettingsSchema = z.object({
   business_unit: z.string().optional(),
   member_only: z.boolean().optional()
 })
 
 // Zod schema for fallback configuration
-const FallbackConfigurationSchema = z.object({
+export const FallbackConfigurationSchema = z.object({
   auto_create: z.boolean(),
   team_name_template: z.string().optional(),
   default_members: z.array(TeamMemberSchema).optional()
 })
 
 // Complete mapping schema
-const TeamMappingSchema = z.object({
+export const TeamMappingSchema = z.object({
   version: z.string().min(1, 'Version is required'),
   defaults: DefaultSettingsSchema.optional(),
   mappings: z.record(z.string(), TeamConfigurationSchema),
   fallback: FallbackConfigurationSchema.optional()
 })
+
+// Export TypeScript types inferred from Zod schemas
+export type TeamMember = z.infer<typeof TeamMemberSchema>
+export type TeamConfiguration = z.infer<typeof TeamConfigurationSchema>
+export type DefaultSettings = z.infer<typeof DefaultSettingsSchema>
+export type FallbackConfiguration = z.infer<typeof FallbackConfigurationSchema>
+export type TeamMapping = z.infer<typeof TeamMappingSchema>
 
 /**
  * Validates and parses team mapping configuration
@@ -58,7 +65,7 @@ const TeamMappingSchema = z.object({
  */
 export function validateMapping(rawMapping: unknown): TeamMapping {
   try {
-    return TeamMappingSchema.parse(rawMapping) as TeamMapping
+    return TeamMappingSchema.parse(rawMapping)
   } catch (error) {
     if (error instanceof z.ZodError) {
       const issues = error.issues
