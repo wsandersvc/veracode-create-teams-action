@@ -28,16 +28,16 @@ to ensure teams exist and are properly configured with validated members.
 
 ## 📋 Table of Contents
 
-- [Quick Start](#quick-start)
-- [Usage Examples](#usage-examples)
-- [Configuration](#configuration)
-- [Inputs](#inputs)
-- [Outputs](#outputs)
-- [Team Mapping Schema](#team-mapping-schema)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
-- [Requirements](#requirements)
-- [Contributing](#contributing)
+- [Quick Start](#-quick-start)
+- [Usage Examples](#-usage-examples)
+- [Configuration](#-configuration)
+- [Inputs](#-inputs)
+- [Outputs](#-outputs)
+- [Team Mapping YAML Schema](#team-mapping-yaml-schema)
+- [Examples](#-examples)
+- [Troubleshooting](#-troubleshooting)
+- [Requirements](#-requirements)
+- [Contributing](#-contributing)
 
 ## 🚀 Quick Start
 
@@ -62,7 +62,7 @@ mappings:
         relationship: 'MEMBER'
 ```
 
-2. **Add the action to your workflow**:
+1. **Add the action to your workflow**:
 
 ```yaml
 name: Sync Veracode Team
@@ -514,12 +514,12 @@ Veracode.
 **Solution:**
 
 1. Ensure users are invited to the Veracode platform first
-2. Check that email addresses match exactly
-3. Verify users have activated their accounts
+1. Check that email addresses match exactly
+1. Verify users have activated their accounts
 
 **Example Output:**
 
-```
+```text
 ⚠️ 2 users do not exist in Veracode and will be skipped
   - newuser@example.com: User does not exist in Veracode platform
   - inactive@example.com: User account is inactive
@@ -532,8 +532,8 @@ Veracode.
 **Solution:**
 
 1. Verify the `config-repository` exists and is accessible
-2. Check the `veracode-team-mapping-yaml` path is correct
-3. Ensure the GitHub token has read access to the config repository
+1. Check the `veracode-team-mapping-yaml` path is correct
+1. Ensure the GitHub token has read access to the config repository
 
 #### Issue 3: Authentication Failures
 
@@ -542,9 +542,9 @@ Veracode.
 **Solution:**
 
 1. Verify Veracode API credentials are correct
-2. Check that credentials have not expired
-3. Ensure the API user has Team Admin permissions
-4. Verify the correct region is specified
+1. Check that credentials have not expired
+1. Ensure the API user has Team Admin permissions
+1. Verify the correct region is specified
 
 #### Issue 4: No Team Configuration Found
 
@@ -553,8 +553,8 @@ Veracode.
 **Solution:**
 
 1. Add an entry for the repository in the mapping file
-2. Use wildcard patterns to match multiple repositories
-3. Configure a fallback auto-create setting
+1. Use wildcard patterns to match multiple repositories
+1. Configure a fallback auto-create setting
 
 ### Debug Mode
 
@@ -573,7 +573,7 @@ Enable debug logging to get detailed information:
 yamllint team-mapping.yaml
 ```
 
-2. **Test with Minimal Configuration:**
+1. **Test with Minimal Configuration:**
 
 ```yaml
 version: '1.0'
@@ -585,7 +585,7 @@ mappings:
         relationship: 'ADMIN'
 ```
 
-3. **Check Action Logs:**
+1. **Check Action Logs:**
 
 - Review info messages about team creation/updates
 - Look for warnings about skipped users
@@ -617,11 +617,11 @@ mappings:
    - Never commit API credentials to the repository
    - Use GitHub's encrypted secrets feature
 
-2. **Principle of Least Privilege:**
+1. **Principle of Least Privilege:**
    - Use API credentials with minimal required permissions
    - Limit token scopes to necessary access
 
-3. **Audit Logging:**
+1. **Audit Logging:**
    - The action logs all team creation and update operations
    - Review action logs regularly for security auditing
 
@@ -630,10 +630,10 @@ mappings:
 Contributions are welcome! Please see our contributing guidelines:
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Create a feature branch (`git checkout -b feature/amazing-feature`)
+1. Commit your changes (`git commit -m 'Add amazing feature'`)
+1. Push to the branch (`git push origin feature/amazing-feature`)
+1. Open a Pull Request
 
 ### Development Setup
 
@@ -682,10 +682,10 @@ for details.
 
 If you encounter issues:
 
-1. Check the [Troubleshooting](#troubleshooting) section
-2. Review
+1. Check the [Troubleshooting](#-troubleshooting) section
+1. Review
    [GitHub Issues](https://github.com/your-org/veracode-create-teams-action/issues)
-3. Open a new issue with:
+1. Open a new issue with:
    - Full error message
    - Sanitized action configuration (no secrets)
    - Steps to reproduce
