@@ -10,36 +10,33 @@ A GitHub Action that automatically creates and manages Veracode teams based on
 repository configurations. This action integrates with the Veracode Identity API
 to ensure teams exist and are properly configured with validated members.
 
-## ✨ Features
+## Features
 
-- ✅ **Automatic Team Management** - Create and update Veracode teams seamlessly
-- ✅ **User Validation** - Validates all users against Veracode platform before
+- **Automatic Team Management** - Create and update Veracode teams seamlessly
+- **User Validation** - Validates all users against Veracode platform before
   adding to teams
-- ✅ **GitHub Collaborator Sync** - Optionally synchronize repository
-  collaborators
-- ✅ **Wildcard Pattern Matching** - Support for pattern-based repository
-  mapping
-- ✅ **Incremental Updates** - Non-destructive updates that preserve existing
+- **GitHub Collaborator Sync** - Optionally synchronize repository collaborators
+- **Wildcard Pattern Matching** - Support for pattern-based repository mapping
+- **Incremental Updates** - Non-destructive updates that preserve existing
   members
-- ✅ **Multi-Region Support** - Works with US, EU, and Federal Veracode
-  instances
-- ✅ **Comprehensive Error Handling** - Retry logic with exponential backoff
-- ✅ **Flexible Configuration** - Centralized YAML-based team mapping
+- **Multi-Region Support** - Works with US, EU, and Federal Veracode instances
+- **Comprehensive Error Handling** - Retry logic with exponential backoff
+- **Flexible Configuration** - Centralized YAML-based team mapping
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [Quick Start](#-quick-start)
-- [Usage Examples](#-usage-examples)
-- [Configuration](#-configuration)
-- [Inputs](#-inputs)
-- [Outputs](#-outputs)
+- [Quick Start](#quick-start)
+- [Usage Examples](#usage-examples)
+- [Configuration](#configuration)
+- [Inputs](#inputs)
+- [Outputs](#outputs)
 - [Team Mapping YAML Schema](#team-mapping-yaml-schema)
-- [Examples](#-examples)
-- [Troubleshooting](#-troubleshooting)
-- [Requirements](#-requirements)
-- [Contributing](#-contributing)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
+- [Requirements](#requirements)
+- [Contributing](#contributing)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Basic Setup
 
@@ -82,7 +79,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 ```
 
-## 📚 Usage Examples
+## Usage Examples
 
 ### Example 1: Basic Team Creation
 
@@ -151,7 +148,7 @@ jobs:
 - name: Handle Skipped Users
   if: steps.veracode-team.outputs.members-skipped > 0
   run: |
-    echo "⚠️ Warning: Some users were not added to the team"
+    echo "Warning: Some users were not added to the team"
     echo "Skipped users: ${{ steps.veracode-team.outputs.skipped-users }}"
 ```
 
@@ -175,7 +172,7 @@ jobs:
     script: |
       const skippedUsers = '${{ steps.veracode-team.outputs.skipped-users }}'.split(',')
       const body = `
-      ## ⚠️ Veracode Team Sync - Users Not Found
+      ## Veracode Team Sync - Users Not Found
 
       The following users could not be added to the Veracode team:
 
@@ -194,13 +191,13 @@ jobs:
       await github.rest.issues.create({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        title: '⚠️ Veracode Team Sync: Users Not Found',
+        title: 'Veracode Team Sync: Users Not Found',
         body: body,
         labels: ['veracode', 'team-management']
       })
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Team Mapping YAML Schema
 
@@ -292,19 +289,19 @@ fallback:
   `{repository_name}`)
 - `default_members` (optional): Default members for auto-created teams
 
-## 📥 Inputs
+## Inputs
 
 | Input                        | Description                                      | Required | Default             |
 | ---------------------------- | ------------------------------------------------ | -------- | ------------------- |
-| `github-token`               | GitHub token with repository access              | ✅ Yes   | -                   |
-| `veracode-api-id`            | Veracode API ID for authentication               | ✅ Yes   | -                   |
-| `veracode-api-key`           | Veracode API Key for authentication              | ✅ Yes   | -                   |
-| `repository`                 | GitHub repository name                           | ✅ Yes   | -                   |
-| `owner`                      | GitHub repository owner                          | ✅ Yes   | -                   |
-| `config-repository`          | Repository containing team mapping config        | ❌ No    | `veracode`          |
-| `config-ref`                 | Branch, tag, or commit SHA for config repository | ❌ No    | Default branch      |
-| `veracode-team-mapping-yaml` | Path to team mapping YAML file                   | ❌ No    | `team-mapping.yaml` |
-| `veracode-region`            | Veracode region (US, EU, or FEDERAL)             | ❌ No    | `US`                |
+| `github-token`               | GitHub token with repository access              | Yes      | -                   |
+| `veracode-api-id`            | Veracode API ID for authentication               | Yes      | -                   |
+| `veracode-api-key`           | Veracode API Key for authentication              | Yes      | -                   |
+| `repository`                 | GitHub repository name                           | Yes      | -                   |
+| `owner`                      | GitHub repository owner                          | Yes      | -                   |
+| `config-repository`          | Repository containing team mapping config        | No       | `veracode`          |
+| `config-ref`                 | Branch, tag, or commit SHA for config repository | No       | Default branch      |
+| `veracode-team-mapping-yaml` | Path to team mapping YAML file                   | No       | `team-mapping.yaml` |
+| `veracode-region`            | Veracode region (US, EU, or FEDERAL)             | No       | `US`                |
 
 ### Input Details
 
@@ -368,7 +365,7 @@ The Veracode instance region. Valid values: `US`, `EU`, `FEDERAL`
 veracode-region: EU
 ```
 
-## 📤 Outputs
+## Outputs
 
 | Output            | Description                                       | Example                                |
 | ----------------- | ------------------------------------------------- | -------------------------------------- |
@@ -396,7 +393,7 @@ veracode-region: EU
     echo "Team Name: ${{ steps.team.outputs.team-name }}"
 ```
 
-## 🎯 Examples
+## Examples
 
 ### Example 1: Simple Team Mapping
 
@@ -502,7 +499,7 @@ fallback:
       relationship: 'ADMIN'
 ```
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -520,7 +517,7 @@ Veracode.
 **Example Output:**
 
 ```text
-⚠️ 2 users do not exist in Veracode and will be skipped
+  2 users do not exist in Veracode and will be skipped
   - newuser@example.com: User does not exist in Veracode platform
   - inactive@example.com: User account is inactive
 ```
@@ -591,7 +588,7 @@ mappings:
 - Look for warnings about skipped users
 - Check for error details in failed runs
 
-## 📋 Requirements
+## Requirements
 
 ### Software Requirements
 
@@ -625,7 +622,7 @@ mappings:
    - The action logs all team creation and update operations
    - Review action logs regularly for security auditing
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please see our contributing guidelines:
 
@@ -665,12 +662,12 @@ npm run lint
 - Code must pass linting checks
 - Follow existing code style and conventions
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 for details.
 
-## 📚 Additional Resources
+## Additional Resources
 
 - [Todo.md](Todo.md) - Original design document
 - [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Detailed implementation
@@ -678,7 +675,7 @@ for details.
 - [Veracode Identity API Documentation](https://docs.veracode.com/r/c_identity_intro)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 
-## 🙋 Support
+## Support
 
 If you encounter issues:
 
@@ -692,7 +689,3 @@ If you encounter issues:
    - Expected vs actual behavior
 
 ---
-
-**Maintainer:** William Sanders
-
-**Version:** 1.0.0
