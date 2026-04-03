@@ -359,6 +359,12 @@ config-repository: .security-config
 
 The Veracode instance region. Valid values: `US`, `EU`, `FEDERAL`
 
+**Region Endpoints:**
+
+- `US`: Commercial US instance (api.veracode.com)
+- `EU`: European instance (api.veracode.eu)
+- `FEDERAL`: US Federal instance (api.fed.veracode.us)
+
 **Example:**
 
 ```yaml
@@ -372,7 +378,7 @@ veracode-region: EU
 | `team-id`         | UUID of the created/updated team                  | `550e8400-e29b-41d4-a716-446655440000` |
 | `team-name`       | Name of the created/updated team                  | `My Application Security Team`         |
 | `team-legacy-id`  | Legacy ID of the team                             | `12345`                                |
-| `action-taken`    | Action performed                                  | `created` or `updated`                 |
+| `action-taken`    | Action performed                                  | `created` or `updated` or `skipped`    |
 | `member-count`    | Total number of members in the team               | `5`                                    |
 | `members-added`   | Number of members successfully added/validated    | `3`                                    |
 | `members-skipped` | Number of members skipped (not found in Veracode) | `2`                                    |
@@ -517,7 +523,7 @@ Veracode.
 **Example Output:**
 
 ```text
-  2 users do not exist in Veracode and will be skipped
+Warning: 2 users will be skipped (not found or inactive in Veracode)
   - newuser@example.com: User does not exist in Veracode platform
   - inactive@example.com: User account is inactive
 ```
@@ -592,7 +598,7 @@ mappings:
 
 ### Software Requirements
 
-- **Node.js:** 24.x or higher
+- **Node.js:** 24.0.0 or higher (24.14.0 recommended)
 - **GitHub Actions:** Runner with ubuntu-latest or equivalent
 
 ### Veracode Requirements
@@ -605,8 +611,9 @@ mappings:
 ### GitHub Requirements
 
 - **GitHub Token:**
-  - `repo` scope (read access to repositories)
-  - `read:org` scope (optional, for organization members)
+  - `repo` scope for reading repository collaborators and content
+  - The default `GITHUB_TOKEN` provided by GitHub Actions has sufficient
+    permissions
 
 ### Security Considerations
 

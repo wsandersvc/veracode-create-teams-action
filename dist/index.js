@@ -64980,8 +64980,7 @@ function interpolateTemplate(template, variables) {
 }
 /**
  * Sanitizes log output to prevent log injection attacks (CWE-117)
- * Escapes control characters that could be used to forge log entries
- * while keeping normal text readable
+ * Uses JSON.stringify to escape control characters including newlines and carriage returns
  * @param input - The string to sanitize
  * @returns Sanitized string safe for logging
  */
@@ -64989,13 +64988,10 @@ function sanitizeForLog(input) {
     if (input === null || input === undefined || input === '') {
         return '';
     }
-    // Escape control characters that could break log integrity
-    // Using hex encoding for control chars (0x00-0x1F and 0x7F DEL)
-    // eslint-disable-next-line no-control-regex
-    return String(input).replace(/[\x00-\x1F\x7F]/g, (char) => {
-        const code = char.charCodeAt(0);
-        return `\\x${code.toString(16).padStart(2, '0').toUpperCase()}`;
-    });
+    // JSON.stringify escapes all control characters including \n, \r, \t, etc.
+    // Remove the outer quotes for cleaner log output
+    const stringified = JSON.stringify(String(input));
+    return stringified.slice(1, -1);
 }
 
 /**
@@ -69254,7 +69250,7 @@ class TeamService {
      * @returns The team if found, null otherwise
      */
     async findTeamByName(teamName) {
-        info(`Searching for team: ${teamName}`);
+        info(`Searching for team: ${sanitizeForLog(teamName)}`);
         for (let page = 0; page < MAX_PAGES; page++) {
             const response = await this.veracodeClient.getTeams({
                 pageable: { page, size: PAGE_SIZE },
@@ -69269,7 +69265,7 @@ class TeamService {
             if (response.teams.length < PAGE_SIZE)
                 break;
         }
-        info(`Team not found: ${teamName}`);
+        info(`Team not found: ${sanitizeForLog(teamName)}`);
         return null;
     }
     /**
@@ -69278,7 +69274,7 @@ class TeamService {
      * @returns The newly created team
      */
     async createTeam(config) {
-        info(`Creating new team: ${config.team_name}`);
+        info(`Creating new team: ${sanitizeForLog(config.team_name)}`);
         const team = await this.veracodeClient.createTeam({
             team_name: config.team_name,
             bu_name: config.business_unit,
@@ -92878,7 +92874,7 @@ async function run() {
         else if (teamConfig.members.length === 0) {
             // Skip update if there are no valid members for an existing team
             startGroup('Skipping team update');
-            info(`No valid members to add. Skipping update for existing team: ${teamConfig.team_name}`);
+            info(`No valid members to add. Skipping update for existing team: ${sanitizeForLog(teamConfig.team_name)}`);
             // Use the existing team details
             team = existingTeam;
             actionTaken = 'skipped';
