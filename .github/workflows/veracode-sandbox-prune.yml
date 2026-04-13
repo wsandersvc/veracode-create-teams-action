@@ -16,6 +16,7 @@ jobs:
           VERACODE_API_ID: ${{ secrets.VERACODE_API_ID }}
           VERACODE_API_SECRET: ${{ secrets.VERACODE_API_KEY }}
         with:
-          activity: "remove-sandbox"
-          app-name: ${{ github.repository_owner }}/${{ github.event.repository.name }}
+          activity: 'remove-sandbox'
+          app-name:
+            ${{ github.repository_owner }}/${{ github.event.repository.name }}
           sandbox-name: ${{ github.ref }}
