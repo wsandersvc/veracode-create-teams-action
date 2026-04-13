@@ -3,6 +3,8 @@ name: Veracode Sandbox Prune
 on:
   delete:
   workflow_dispatch:
+  schedule:
+    - cron: 30 14 * * *
 
 jobs:
   veracode-sandbox-task:
