@@ -1,0 +1,19 @@
+on:
+  delete:
+  workflow_dispatch:
+
+jobs:
+  veracode-sandbox-task:
+    runs-on: ubuntu-latest
+    name: Clean branch sandbox
+
+    steps:
+      - name: Delete Sandbox
+        uses: veracode/veracode-sandboxes-helper@v1.0.0
+        env:
+          VERACODE_API_ID: ${{ secrets.VERACODE_API_ID }}
+          VERACODE_API_KEY: ${{ secrets.VERACODE_API_KEY }}
+        with:
+          activity: "remove-sandbox"
+          app-name: ${{ github.repository_owner }}/${{ github.event.repository.name }}
+          sandbox-name: ${{ github.ref }}
