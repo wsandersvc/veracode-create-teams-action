@@ -10,7 +10,8 @@ jobs:
     name: Clean branch sandbox
 
     steps:
-      - name: Delete Sandbox
+      - name: Delete sandbox
+        if: ${{ github.event_name == 'delete' }}
         uses: veracode/veracode-sandboxes-helper@v1.0.0
         env:
           VERACODE_API_ID: ${{ secrets.VERACODE_API_ID }}
@@ -20,3 +21,18 @@ jobs:
           app-name:
             ${{ github.repository_owner }}/${{ github.event.repository.name }}
           sandbox-name: ${{ github.ref }}
+
+      - name: Delete unused sandboxes
+        if:
+          ${{ github.event_name == 'schedule' || github.event_name ==
+          'workflow_dispatch' }}
+        uses: veracode/veracode-sandboxes-helper@v1.0.0
+        env:
+          VERACODE_API_ID: ${{ secrets.VERACODE_API_ID }}
+          VERACODE_API_SECRET: ${{ secrets.VERACODE_API_KEY }}
+        with:
+          activity: 'clean'
+          app-name:
+            ${{ github.repository_owner }}/${{ github.event.repository.name }}
+          clean-amount: '2'
+          clean-modified-before: '14'
