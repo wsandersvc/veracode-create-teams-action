@@ -35,4 +35,4 @@ jobs:
           app-name:
             ${{ github.repository_owner }}/${{ github.event.repository.name }}
           clean-amount: '2'
-          clean-modified-before: '14'
+          clean-modified-before: '7'
