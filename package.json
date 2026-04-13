@@ -1,7 +1,7 @@
 {
   "name": "veracode-create-teams-action",
   "description": "Automatically create and manage Veracode teams based on repository configurations",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "William Sanders",
   "type": "module",
   "private": true,
@@ -56,7 +56,7 @@
     "@rollup/plugin-typescript": "12.3.0",
     "@types/jest": "30.0.0",
     "@types/js-yaml": "4.0.9",
-    "@types/node": "25.5.2",
+    "@types/node": "^25.5.2",
     "@types/qs": "6.15.0",
     "@typescript-eslint/eslint-plugin": "8.58.0",
     "eslint": "10.2.0",
