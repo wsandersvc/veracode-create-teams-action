@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: 30 14 * * *
 
+permissions:
+  contents: read
+
 jobs:
   veracode-sandbox-task:
     runs-on: ubuntu-latest
