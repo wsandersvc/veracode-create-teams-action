@@ -186,8 +186,7 @@ describe('config/validator.ts', () => {
       }
 
       expect(() => validateMapping(config)).toThrow(
-        // eslint-disable-next-line no-useless-escape
-        'Invalid option: expected one of \"ADMIN\"|\"MEMBER\"'
+        'Relationship must be either ADMIN or MEMBER'
       )
     })
 
