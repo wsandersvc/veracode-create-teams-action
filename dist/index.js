@@ -69304,7 +69304,7 @@ function superRefine(fn) {
 const TeamMemberSchema = object({
     user: string().min(1, 'User email/username is required'),
     relationship: _enum(['ADMIN', 'MEMBER'], {
-        errorMap: () => ({ message: 'Relationship must be either ADMIN or MEMBER' })
+        message: 'Relationship must be either ADMIN or MEMBER'
     })
 });
 // Zod schema for team configuration
