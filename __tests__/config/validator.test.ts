@@ -185,7 +185,10 @@ describe('config/validator.ts', () => {
         }
       }
 
-      expect(() => validateMapping(config)).toThrow('ADMIN or MEMBER')
+      expect(() => validateMapping(config)).toThrow(
+        // eslint-disable-next-line no-useless-escape
+        'Invalid option: expected one of \"ADMIN\"|\"MEMBER\"'
+      )
     })
 
     it('should throw error for missing user in member', () => {
