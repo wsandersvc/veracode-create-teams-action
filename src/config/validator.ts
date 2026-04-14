@@ -11,7 +11,7 @@ import { z } from 'zod'
 export const TeamMemberSchema = z.object({
   user: z.string().min(1, 'User email/username is required'),
   relationship: z.enum(['ADMIN', 'MEMBER'], {
-    errorMap: () => ({ message: 'Relationship must be either ADMIN or MEMBER' })
+    message: 'Relationship must be either ADMIN or MEMBER'
   })
 })
 

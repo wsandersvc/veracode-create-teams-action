@@ -185,7 +185,9 @@ describe('config/validator.ts', () => {
         }
       }
 
-      expect(() => validateMapping(config)).toThrow('ADMIN or MEMBER')
+      expect(() => validateMapping(config)).toThrow(
+        'Relationship must be either ADMIN or MEMBER'
+      )
     })
 
     it('should throw error for missing user in member', () => {
