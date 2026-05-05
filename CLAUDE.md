@@ -107,7 +107,8 @@ npm run coverage        # Generate coverage badge
 npm run format:write    # Format code with Prettier
 npm run format:check    # Check formatting without changes
 npm run lint            # Lint with ESLint
-npm run all             # Run format, lint, test, coverage, and bundle (full CI pipeline)
+npm run all             # Run format, lint, test, coverage,
+                        # and bundle (full CI pipeline)
 ```
 
 ### Local Development
