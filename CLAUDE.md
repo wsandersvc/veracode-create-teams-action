@@ -126,7 +126,6 @@ git add dist/
 git push
 ```
 
-
 ## Important Conventions
 
 ### TypeScript & Bundling
