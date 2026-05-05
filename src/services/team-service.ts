@@ -41,7 +41,9 @@ export class TeamService {
         return exactMatch
       }
 
-      if (page >= response.page.totalPages - 1) break
+      // Stop pagination when we've reached the last page per API metadata.
+      // Defensive check prevents errors if API returns malformed pagination data.
+      if (!response.page || page >= response.page.totalPages - 1) break
     }
 
     core.info(`Team not found: ${sanitizeForLog(teamName)}`)

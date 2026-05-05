@@ -65,9 +65,9 @@ export class RateLimiter {
   }
 
   /**
-   * Executes function with delay
+   * Executes function with delay — enforces minimum interval between request starts
    * @param fn Function to execute
-   * @returns Promise that resolves with the result after minimum interval
+   * @returns Promise that resolves with the result after the minimum interval delay
    */
   private async executeWithDelay<T>(fn: () => Promise<T>): Promise<T> {
     await sleep(this.minInterval)
