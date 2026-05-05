@@ -126,8 +126,6 @@ git add dist/
 git push
 ```
 
-The `.gitattributes` file ensures dist/ conflicts are resolved by keeping the current
-branch version, but rebuilding locally prevents unnecessary conflicts altogether.
 
 ## Important Conventions
 
