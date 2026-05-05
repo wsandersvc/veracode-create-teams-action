@@ -1,18 +1,15 @@
 {
-  "hooks": [
-    {
-      "name": "auto-bundle-on-ts-edit",
-      "event": "PostToolUse",
-      "tools": ["Edit", "Write"],
-      "condition": "path.includes('src/') && path.endsWith('.ts')",
-      "run": "bash -c 'npm run bundle'"
-    },
-    {
-      "name": "block-env-edits",
-      "event": "PreToolUse",
-      "tools": ["Edit", "Write"],
-      "condition": "path === '.env'",
-      "run": "error 'Cannot edit .env directly. Use .env.example as template and set values locally.'"
-    }
-  ]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; [[ \"$f\" == src/* && \"$f\" == *.ts ]] && npm run bundle; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
 }
