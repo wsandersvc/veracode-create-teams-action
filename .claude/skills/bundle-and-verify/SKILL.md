@@ -11,9 +11,9 @@ disable-model-invocation: true
 Runs the complete pre-commit pipeline for this GitHub Action:
 
 1. **Format**: `npm run format:write` — Format all code with Prettier
-2. **Lint**: `npm run lint` — Check code quality with ESLint
-3. **Test**: `npm run test` — Run Jest tests with coverage badge generation
-4. **Bundle**: `npm run package` — Transpile TypeScript to dist/ with Rollup
+1. **Lint**: `npm run lint` — Check code quality with ESLint
+1. **Test**: `npm run test` — Run Jest tests with coverage badge generation
+1. **Bundle**: `npm run package` — Transpile TypeScript to dist/ with Rollup
 
 This matches the CI pipeline exactly. Use before committing to catch issues
 locally and ensure CI doesn't block your PR.
@@ -29,7 +29,7 @@ locally and ensure CI doesn't block your PR.
 
 Just invoke this skill:
 
-```
+```bash
 /bundle-and-verify
 ```
 

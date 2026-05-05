@@ -10,8 +10,8 @@ Launches a local action environment for testing the Veracode Create Teams action
 without CI:
 
 1. Verifies `.env` exists (copies from `.env.example` if needed)
-2. Runs `npm run local-action` to test `src/main.ts` entry point
-3. Displays logs for debugging team creation/update logic
+1. Runs `npm run local-action` to test `src/main.ts` entry point
+1. Displays logs for debugging team creation/update logic
 
 This uses the `@github/local-action` testing harness to simulate a real GitHub
 Actions environment.
@@ -37,7 +37,7 @@ cp .env.example .env
 
 ## Quick Run
 
-```
+```bash
 /test-action-locally
 ```
 
@@ -45,7 +45,7 @@ Check the output in `local-action-output.log` for detailed results.
 
 ## Example Output
 
-```
+```text
 [info] Repository: owner/repo
 [info] Config: owner/veracode/team-mapping.yaml (ref: main)
 [info] Region: US

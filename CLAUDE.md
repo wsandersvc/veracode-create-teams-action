@@ -13,7 +13,7 @@ to ensure teams exist and are properly configured with validated members.
 
 ### Repository Structure
 
-```
+```text
 src/
 ├── main.ts              # Action entry point - orchestrates workflow
 ├── index.ts             # Exports run() for GitHub Actions
@@ -40,18 +40,18 @@ src/
 The action follows this sequence:
 
 1. **Input Validation**: Retrieves and validates GitHub Actions inputs
-2. **Client Initialization**: Sets up Veracode and GitHub clients
-3. **Configuration Loading**: Fetches and validates team mapping YAML from
+1. **Client Initialization**: Sets up Veracode and GitHub clients
+1. **Configuration Loading**: Fetches and validates team mapping YAML from
    config repository
-4. **Team Resolution**: Resolves repository name to team configuration (supports
+1. **Team Resolution**: Resolves repository name to team configuration (supports
    wildcards)
-5. **GitHub Sync** (optional): Fetches GitHub collaborators if
+1. **GitHub Sync** (optional): Fetches GitHub collaborators if
    `sync_github_collaborators: true`
-6. **Member Validation**: Validates all users exist and are active in Veracode
-7. **Team Lookup**: Checks if team already exists
-8. **Team Operation**: Creates new team or updates existing team with valid
+1. **Member Validation**: Validates all users exist and are active in Veracode
+1. **Team Lookup**: Checks if team already exists
+1. **Team Operation**: Creates new team or updates existing team with valid
    members
-9. **Output & Summary**: Sets GitHub Actions outputs and writes step summary
+1. **Output & Summary**: Sets GitHub Actions outputs and writes step summary
 
 ### Configuration System
 
@@ -65,9 +65,9 @@ The action follows this sequence:
 ### Data Flow
 
 1. Team mapping YAML → Validator (Zod schema) → Resolver
-2. Repository name → Resolver → TeamConfiguration
-3. TeamConfiguration → UserValidator → Valid members only
-4. Valid members → TeamService → Veracode API → Team ID
+1. Repository name → Resolver → TeamConfiguration
+1. TeamConfiguration → UserValidator → Valid members only
+1. Valid members → TeamService → Veracode API → Team ID
 
 ### Error Handling
 
@@ -88,8 +88,8 @@ npm install
 ### Build & Bundle
 
 ```bash
-npm run bundle          # Format, lint, and bundle TypeScript to JavaScript
-npm run package         # Bundle TypeScript to dist/ (manual, without format/lint)
+npm run bundle          # Format, lint, test, and bundle TypeScript
+npm run package         # Bundle TypeScript to dist/ (without format/lint)
 npm run package:watch   # Watch mode for package
 ```
 
@@ -141,7 +141,7 @@ branch version, but rebuilding locally prevents unnecessary conflicts altogether
 - **GitHub workflow check**: The CI validates that `dist/` is up-to-date with
   `src/`
 
-### Testing
+### Test Organization
 
 - **Unit tests in `__tests__/`**: Jest-based tests
 - **Fixtures in `__fixtures__/`**: Test data and mock responses
@@ -180,30 +180,29 @@ branch version, but rebuilding locally prevents unnecessary conflicts altogether
 ### Adding a New Input
 
 1. Add to `action.yml` under `inputs`
-2. Add to `ActionInputs` interface in `types.ts`
-3. Update `getInputs()` in `main.ts` to retrieve it with `core.getInput()`
-4. Use the new input in the appropriate service
+1. Add to `ActionInputs` interface in `types.ts`
+1. Update `getInputs()` in `main.ts` to retrieve it with `core.getInput()`
+1. Use the new input in the appropriate service
 
 ### Adding a New Output
 
 1. Add to `action.yml` under `outputs`
-2. Add to `ActionOutputs` interface in `types.ts`
-3. Update `setOutputs()` in `main.ts` to call `core.setOutput()`
+1. Add to `ActionOutputs` interface in `types.ts`
+1. Update `setOutputs()` in `main.ts` to call `core.setOutput()`
 
 ### Modifying Configuration Schema
 
 1. Update the Zod schema in `config/validator.ts`
-2. Export the new type from validator.ts
-3. Update type imports in `types.ts` if needed
-4. Update team mapping examples in README.md
+1. Export the new type from validator.ts
+1. Update type imports in `types.ts` if needed
+1. Update team mapping examples in README.md
 
 ### Adding Veracode API Endpoints
 
 1. Add method to `VeracodeClient` in `veracode/client.ts`
-2. Include error categorization and retry logic
-3. Document parameters and return types
-4. Add corresponding service method if needed (e.g., in
-   `services/team-service.ts`)
+1. Include error categorization and retry logic
+1. Document parameters and return types
+1. Add corresponding service method if needed (`services/team-service.ts`)
 
 ## Testing & CI
 
@@ -223,4 +222,4 @@ branch version, but rebuilding locally prevents unnecessary conflicts altogether
 - **README.md**: User-facing documentation with examples and troubleshooting
 - **README-actions-toolkit.md**: Information about GitHub Actions toolkit usage
 - **action.yml**: GitHub Actions metadata (inputs, outputs, branding)
-- **Veracode Identity API Docs**: https://docs.veracode.com/r/c_identity_intro
+- **Veracode Identity API Docs**: <https://docs.veracode.com/r/c_identity_intro>
