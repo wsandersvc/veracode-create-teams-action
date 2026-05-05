@@ -69613,7 +69613,7 @@ class TeamService {
                 info(`Found existing team: ${sanitizeForLog(teamName)} (${sanitizeForLog(exactMatch.team_id)})`);
                 return exactMatch;
             }
-            if (response.teams.length < PAGE_SIZE)
+            if (page >= response.page.totalPages - 1)
                 break;
         }
         info(`Team not found: ${sanitizeForLog(teamName)}`);
@@ -69859,13 +69859,12 @@ class UserValidator {
  * @throws Error if all retries are exhausted
  */
 async function executeWithRetry(operation, operationName, maxRetries = 3) {
-    let attempt = 0;
-    while (attempt < maxRetries) {
+    let attempt = 1;
+    while (attempt <= maxRetries) {
         try {
             return await operation();
         }
         catch (error$1) {
-            attempt++;
             const err = error$1;
             const shouldRetry = err.retryable || isRetryable(err.category, err.statusCode);
             if (!shouldRetry || attempt >= maxRetries) {
@@ -69877,9 +69876,10 @@ async function executeWithRetry(operation, operationName, maxRetries = 3) {
             warning(`${operationName} failed (attempt ${attempt}/${maxRetries}). ` +
                 `Retrying in ${backoffDelay}ms... Error: ${err.message}`);
             await sleep(backoffDelay);
+            attempt++;
         }
     }
-    throw new Error(`Operation failed after ${maxRetries} retries: ${operationName}`);
+    throw new Error(`Operation failed after ${maxRetries} attempts: ${operationName}`);
 }
 
 /**
@@ -93041,6 +93041,82 @@ function getBaseUrl(region) {
 }
 
 /**
+ * Rate limiter for API calls
+ */
+/**
+ * Rate limiter that controls the rate of API calls to prevent overwhelming the API
+ * or hitting rate limits. Supports both concurrent request limits and minimum
+ * intervals between requests.
+ */
+class RateLimiter {
+    requestQueue = [];
+    maxConcurrent;
+    minInterval;
+    /**
+     * Creates a new rate limiter
+     * @param maxConcurrent Maximum number of concurrent requests (default: 5)
+     * @param minIntervalMs Minimum interval between requests in milliseconds (default: 200)
+     */
+    constructor(maxConcurrent = 5, minIntervalMs = 200) {
+        this.maxConcurrent = maxConcurrent;
+        this.minInterval = minIntervalMs;
+    }
+    /**
+     * Throttles execution of an async function according to rate limiting rules
+     * @param fn Function to execute
+     * @returns Promise that resolves with the result of the function
+     */
+    async throttle(fn) {
+        // Wait if too many concurrent requests
+        while (this.requestQueue.length >= this.maxConcurrent) {
+            // Use catch to prevent unhandled rejections in race
+            await Promise.race(this.requestQueue.map((p) => p.catch(() => undefined)));
+        }
+        // Execute with minimum interval
+        const promise = this.executeWithDelay(fn);
+        // Create a wrapped promise that handles cleanup
+        const wrappedPromise = promise.then((result) => {
+            this.removeFromQueue(wrappedPromise);
+            return result;
+        }, (error) => {
+            this.removeFromQueue(wrappedPromise);
+            throw error;
+        });
+        this.requestQueue.push(wrappedPromise);
+        return wrappedPromise;
+    }
+    /**
+     * Removes a promise from the request queue
+     * @param promise Promise to remove
+     */
+    removeFromQueue(promise) {
+        this.requestQueue = this.requestQueue.filter((p) => p !== promise);
+    }
+    /**
+     * Executes function with delay
+     * @param fn Function to execute
+     * @returns Promise that resolves with the result after minimum interval
+     */
+    async executeWithDelay(fn) {
+        await sleep(this.minInterval);
+        return fn();
+    }
+    /**
+     * Gets the current number of pending requests
+     * @returns Number of requests currently in the queue
+     */
+    get pendingRequests() {
+        return this.requestQueue.length;
+    }
+    /**
+     * Clears all pending requests (for cleanup/testing)
+     */
+    clear() {
+        this.requestQueue = [];
+    }
+}
+
+/**
  * Veracode Identity API client
  */
 /**
@@ -93051,6 +93127,7 @@ class VeracodeClient {
     apiId;
     apiKey;
     baseUrl;
+    rateLimiter;
     /**
      * Creates a new Veracode API client
      * @param apiId - Veracode API ID for authentication
@@ -93061,6 +93138,7 @@ class VeracodeClient {
         this.apiId = apiId;
         this.apiKey = apiKey;
         this.baseUrl = getBaseUrl(region);
+        this.rateLimiter = new RateLimiter(5, 200);
         this.client = axios.create({
             baseURL: this.baseUrl,
             timeout: 30000,
@@ -93126,92 +93204,102 @@ class VeracodeClient {
      * GET /v2/teams - List teams with optional filtering
      */
     async getTeams(params = {}) {
-        try {
-            const response = await this.client.get('/v2/teams', {
-                params: {
-                    page: params.pageable?.page || 0,
-                    size: params.pageable?.size || 50,
-                    team_name: params.team_name,
-                    ignore_self_teams: params.ignore_self_teams ?? true
-                }
-            });
-            return {
-                teams: response.data._embedded?.teams || [],
-                page: response.data.page
-            };
-        }
-        catch (error) {
-            throw new VeracodeActionError('Failed to fetch teams from Veracode', ErrorCategory.API_ERROR, true, error.response?.status, error);
-        }
+        return this.rateLimiter.throttle(async () => {
+            try {
+                const response = await this.client.get('/v2/teams', {
+                    params: {
+                        page: params.pageable?.page || 0,
+                        size: params.pageable?.size || 50,
+                        team_name: params.team_name,
+                        ignore_self_teams: params.ignore_self_teams ?? true
+                    }
+                });
+                return {
+                    teams: response.data._embedded?.teams || [],
+                    page: response.data.page
+                };
+            }
+            catch (error) {
+                throw new VeracodeActionError('Failed to fetch teams from Veracode', ErrorCategory.API_ERROR, true, error.response?.status, error);
+            }
+        });
     }
     /**
      * GET /v2/teams/{teamId} - Get team by ID
      */
     async getTeam(teamId) {
-        try {
-            const response = await this.client.get(`/v2/teams/${teamId}`);
-            return response.data;
-        }
-        catch (error) {
-            throw new VeracodeActionError(`Failed to fetch team ${teamId}`, ErrorCategory.API_ERROR, true, error.response?.status, error);
-        }
+        return this.rateLimiter.throttle(async () => {
+            try {
+                const response = await this.client.get(`/v2/teams/${teamId}`);
+                return response.data;
+            }
+            catch (error) {
+                throw new VeracodeActionError(`Failed to fetch team ${teamId}`, ErrorCategory.API_ERROR, true, error.response?.status, error);
+            }
+        });
     }
     /**
      * POST /v2/teams - Create new team
      */
     async createTeam(team) {
-        try {
-            info(`Creating team: ${sanitizeForLog(team.team_name)}`);
-            const response = await this.client.post('/v2/teams', team);
-            info(`Team created successfully: ${sanitizeForLog(response.data.team_id)}`);
-            return response.data;
-        }
-        catch (error) {
-            throw new VeracodeActionError(`Failed to create team ${team.team_name}`, ErrorCategory.API_ERROR, false, error.response?.status, error);
-        }
+        return this.rateLimiter.throttle(async () => {
+            try {
+                info(`Creating team: ${sanitizeForLog(team.team_name)}`);
+                const response = await this.client.post('/v2/teams', team);
+                info(`Team created successfully: ${sanitizeForLog(response.data.team_id)}`);
+                return response.data;
+            }
+            catch (error) {
+                throw new VeracodeActionError(`Failed to create team ${team.team_name}`, ErrorCategory.API_ERROR, false, error.response?.status, error);
+            }
+        });
     }
     /**
      * PUT /v2/teams/{teamId} - Update team
      */
     async updateTeam(teamId, team, options = {}) {
-        try {
-            info(`Updating team: ${sanitizeForLog(teamId)}`);
-            const response = await this.client.put(`/v2/teams/${teamId}`, team, {
-                params: {
-                    partial: options.partial ?? true,
-                    incremental: options.incremental ?? true
-                }
-            });
-            info('Team updated successfully');
-            return response.data;
-        }
-        catch (error) {
-            throw new VeracodeActionError(`Failed to update team ${teamId}`, ErrorCategory.API_ERROR, false, error.response?.status, error);
-        }
+        return this.rateLimiter.throttle(async () => {
+            try {
+                info(`Updating team: ${sanitizeForLog(teamId)}`);
+                const response = await this.client.put(`/v2/teams/${teamId}`, team, {
+                    params: {
+                        partial: options.partial ?? true,
+                        incremental: options.incremental ?? true
+                    }
+                });
+                info('Team updated successfully');
+                return response.data;
+            }
+            catch (error) {
+                throw new VeracodeActionError(`Failed to update team ${teamId}`, ErrorCategory.API_ERROR, false, error.response?.status, error);
+            }
+        });
     }
     /**
      * GET /v2/users - Search for users
      */
     async getUsers(params = {}) {
-        try {
-            const response = await this.client.get('/v2/users', {
-                params: {
-                    page: params.pageable?.page || 0,
-                    size: params.pageable?.size || 50,
-                    search_term: params.search_term,
-                    email_address: params.email_address,
-                    user_name: params.user_name,
-                    active: params.active
-                }
-            });
-            return {
-                users: response.data._embedded?.users || [],
-                page: response.data.page
-            };
-        }
-        catch (error) {
-            throw new VeracodeActionError('Failed to fetch users from Veracode', ErrorCategory.API_ERROR, true, error.response?.status, error);
-        }
+        return this.rateLimiter.throttle(async () => {
+            try {
+                const response = await this.client.get('/v2/users', {
+                    params: {
+                        page: params.pageable?.page || 0,
+                        size: params.pageable?.size || 50,
+                        search_term: params.search_term,
+                        email_address: params.email_address,
+                        user_name: params.user_name,
+                        active: params.active
+                    }
+                });
+                return {
+                    users: response.data._embedded?.users || [],
+                    page: response.data.page
+                };
+            }
+            catch (error) {
+                throw new VeracodeActionError('Failed to fetch users from Veracode', ErrorCategory.API_ERROR, true, error.response?.status, error);
+            }
+        });
     }
 }
 

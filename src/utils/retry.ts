@@ -19,14 +19,12 @@ export async function executeWithRetry<T>(
   operationName: string,
   maxRetries: number = 3
 ): Promise<T> {
-  let attempt = 0
+  let attempt = 1
 
-  while (attempt < maxRetries) {
+  while (attempt <= maxRetries) {
     try {
       return await operation()
     } catch (error) {
-      attempt++
-
       const err = error as VeracodeActionError
       const shouldRetry =
         err.retryable || isRetryable(err.category, err.statusCode)
@@ -46,10 +44,11 @@ export async function executeWithRetry<T>(
       )
 
       await sleep(backoffDelay)
+      attempt++
     }
   }
 
   throw new Error(
-    `Operation failed after ${maxRetries} retries: ${operationName}`
+    `Operation failed after ${maxRetries} attempts: ${operationName}`
   )
 }

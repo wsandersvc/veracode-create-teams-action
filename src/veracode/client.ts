@@ -6,6 +6,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios'
 import * as core from '@actions/core'
 import qs from 'qs'
 import { generateAuthHeader, getBaseUrl } from './auth.js'
+import { RateLimiter } from '../utils/rate-limiter.js'
 import {
   VeracodeTeam,
   VeracodeUser,
@@ -78,6 +79,7 @@ export class VeracodeClient {
   private apiId: string
   private apiKey: string
   private baseUrl: string
+  private rateLimiter: RateLimiter
 
   /**
    * Creates a new Veracode API client
@@ -93,6 +95,7 @@ export class VeracodeClient {
     this.apiId = apiId
     this.apiKey = apiKey
     this.baseUrl = getBaseUrl(region)
+    this.rateLimiter = new RateLimiter(5, 200)
 
     this.client = axios.create({
       baseURL: this.baseUrl,
@@ -187,74 +190,80 @@ export class VeracodeClient {
       number: number
     }
   }> {
-    try {
-      const response = await this.client.get<PaginatedResponse<VeracodeTeam>>(
-        '/v2/teams',
-        {
-          params: {
-            page: params.pageable?.page || 0,
-            size: params.pageable?.size || 50,
-            team_name: params.team_name,
-            ignore_self_teams: params.ignore_self_teams ?? true
+    return this.rateLimiter.throttle(async () => {
+      try {
+        const response = await this.client.get<PaginatedResponse<VeracodeTeam>>(
+          '/v2/teams',
+          {
+            params: {
+              page: params.pageable?.page || 0,
+              size: params.pageable?.size || 50,
+              team_name: params.team_name,
+              ignore_self_teams: params.ignore_self_teams ?? true
+            }
           }
-        }
-      )
+        )
 
-      return {
-        teams: response.data._embedded?.teams || [],
-        page: response.data.page
+        return {
+          teams: response.data._embedded?.teams || [],
+          page: response.data.page
+        }
+      } catch (error) {
+        throw new VeracodeActionError(
+          'Failed to fetch teams from Veracode',
+          ErrorCategory.API_ERROR,
+          true,
+          (error as AxiosError).response?.status,
+          error as Error
+        )
       }
-    } catch (error) {
-      throw new VeracodeActionError(
-        'Failed to fetch teams from Veracode',
-        ErrorCategory.API_ERROR,
-        true,
-        (error as AxiosError).response?.status,
-        error as Error
-      )
-    }
+    })
   }
 
   /**
    * GET /v2/teams/{teamId} - Get team by ID
    */
   async getTeam(teamId: string): Promise<VeracodeTeam> {
-    try {
-      const response = await this.client.get<VeracodeTeam>(
-        `/v2/teams/${teamId}`
-      )
-      return response.data
-    } catch (error) {
-      throw new VeracodeActionError(
-        `Failed to fetch team ${teamId}`,
-        ErrorCategory.API_ERROR,
-        true,
-        (error as AxiosError).response?.status,
-        error as Error
-      )
-    }
+    return this.rateLimiter.throttle(async () => {
+      try {
+        const response = await this.client.get<VeracodeTeam>(
+          `/v2/teams/${teamId}`
+        )
+        return response.data
+      } catch (error) {
+        throw new VeracodeActionError(
+          `Failed to fetch team ${teamId}`,
+          ErrorCategory.API_ERROR,
+          true,
+          (error as AxiosError).response?.status,
+          error as Error
+        )
+      }
+    })
   }
 
   /**
    * POST /v2/teams - Create new team
    */
   async createTeam(team: CreateTeamParams): Promise<VeracodeTeam> {
-    try {
-      core.info(`Creating team: ${sanitizeForLog(team.team_name)}`)
-      const response = await this.client.post<VeracodeTeam>('/v2/teams', team)
-      core.info(
-        `Team created successfully: ${sanitizeForLog(response.data.team_id)}`
-      )
-      return response.data
-    } catch (error) {
-      throw new VeracodeActionError(
-        `Failed to create team ${team.team_name}`,
-        ErrorCategory.API_ERROR,
-        false,
-        (error as AxiosError).response?.status,
-        error as Error
-      )
-    }
+    return this.rateLimiter.throttle(async () => {
+      try {
+        core.info(`Creating team: ${sanitizeForLog(team.team_name)}`)
+        const response = await this.client.post<VeracodeTeam>('/v2/teams', team)
+        core.info(
+          `Team created successfully: ${sanitizeForLog(response.data.team_id)}`
+        )
+        return response.data
+      } catch (error) {
+        throw new VeracodeActionError(
+          `Failed to create team ${team.team_name}`,
+          ErrorCategory.API_ERROR,
+          false,
+          (error as AxiosError).response?.status,
+          error as Error
+        )
+      }
+    })
   }
 
   /**
@@ -265,29 +274,31 @@ export class VeracodeClient {
     team: UpdateTeamParams,
     options: UpdateTeamOptions = {}
   ): Promise<VeracodeTeam> {
-    try {
-      core.info(`Updating team: ${sanitizeForLog(teamId)}`)
-      const response = await this.client.put<VeracodeTeam>(
-        `/v2/teams/${teamId}`,
-        team,
-        {
-          params: {
-            partial: options.partial ?? true,
-            incremental: options.incremental ?? true
+    return this.rateLimiter.throttle(async () => {
+      try {
+        core.info(`Updating team: ${sanitizeForLog(teamId)}`)
+        const response = await this.client.put<VeracodeTeam>(
+          `/v2/teams/${teamId}`,
+          team,
+          {
+            params: {
+              partial: options.partial ?? true,
+              incremental: options.incremental ?? true
+            }
           }
-        }
-      )
-      core.info('Team updated successfully')
-      return response.data
-    } catch (error) {
-      throw new VeracodeActionError(
-        `Failed to update team ${teamId}`,
-        ErrorCategory.API_ERROR,
-        false,
-        (error as AxiosError).response?.status,
-        error as Error
-      )
-    }
+        )
+        core.info('Team updated successfully')
+        return response.data
+      } catch (error) {
+        throw new VeracodeActionError(
+          `Failed to update team ${teamId}`,
+          ErrorCategory.API_ERROR,
+          false,
+          (error as AxiosError).response?.status,
+          error as Error
+        )
+      }
+    })
   }
 
   /**
@@ -302,33 +313,35 @@ export class VeracodeClient {
       number: number
     }
   }> {
-    try {
-      const response = await this.client.get<PaginatedResponse<VeracodeUser>>(
-        '/v2/users',
-        {
-          params: {
-            page: params.pageable?.page || 0,
-            size: params.pageable?.size || 50,
-            search_term: params.search_term,
-            email_address: params.email_address,
-            user_name: params.user_name,
-            active: params.active
+    return this.rateLimiter.throttle(async () => {
+      try {
+        const response = await this.client.get<PaginatedResponse<VeracodeUser>>(
+          '/v2/users',
+          {
+            params: {
+              page: params.pageable?.page || 0,
+              size: params.pageable?.size || 50,
+              search_term: params.search_term,
+              email_address: params.email_address,
+              user_name: params.user_name,
+              active: params.active
+            }
           }
-        }
-      )
+        )
 
-      return {
-        users: response.data._embedded?.users || [],
-        page: response.data.page
+        return {
+          users: response.data._embedded?.users || [],
+          page: response.data.page
+        }
+      } catch (error) {
+        throw new VeracodeActionError(
+          'Failed to fetch users from Veracode',
+          ErrorCategory.API_ERROR,
+          true,
+          (error as AxiosError).response?.status,
+          error as Error
+        )
       }
-    } catch (error) {
-      throw new VeracodeActionError(
-        'Failed to fetch users from Veracode',
-        ErrorCategory.API_ERROR,
-        true,
-        (error as AxiosError).response?.status,
-        error as Error
-      )
-    }
+    })
   }
 }

@@ -41,7 +41,7 @@ export class TeamService {
         return exactMatch
       }
 
-      if (response.teams.length < PAGE_SIZE) break
+      if (page >= response.page.totalPages - 1) break
     }
 
     core.info(`Team not found: ${sanitizeForLog(teamName)}`)
