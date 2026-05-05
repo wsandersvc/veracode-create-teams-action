@@ -116,6 +116,19 @@ npm run all             # Run format, lint, test, coverage, and bundle (full CI 
 npm run local-action    # Test action locally using @github/local-action
 ```
 
+### Before Pushing
+
+Always rebuild dist/ before pushing to avoid merge conflicts:
+
+```bash
+npm run bundle          # Formats, lints, tests, bundles, and updates dist/
+git add dist/
+git push
+```
+
+The `.gitattributes` file ensures dist/ conflicts are resolved by keeping the current
+branch version, but rebuilding locally prevents unnecessary conflicts altogether.
+
 ## Important Conventions
 
 ### TypeScript & Bundling
